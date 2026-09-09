@@ -21,6 +21,14 @@ function productImage(p) {
   return p?.images?.find(i => i.position === 'front')?.src || p?.images?.[0]?.src || '';
 }
 
+function productImages(p) {
+  return [...new Set((p?.images || []).map(i => i?.src).filter(Boolean))].slice(0, 8);
+}
+
+function availableVariants(p) {
+  return (p?.variants || []).filter(v => v.is_available !== false && v.is_enabled !== false);
+}
+
 function tagsText(p) {
   return (p.tags || []).join(' ').toLowerCase();
 }
@@ -95,41 +103,91 @@ function renderProducts() {
 }
 
 function quickAdd(p) {
-  const variant = p.variants?.[0];
-  if (!variant) return openProduct(p);
-  addToCart(p, variant, 1);
+  const variants = availableVariants(p);
+  // Require an explicit choice whenever the product has multiple variants.
+  if (variants.length !== 1) return openProduct(p);
+  addToCart(p, variants[0], 1);
   openBag();
 }
 
 function openProduct(p) {
   const dialog = $('#productDialog');
-  const variants = (p.variants || []).map(v =>
+  const liveVariants = availableVariants(p);
+  const images = productImages(p);
+  const mainImage = images[0] || productImage(p);
+
+  const variants = liveVariants.map(v =>
     `<option value="${escapeAttr(String(v.id))}">${escapeHtml(v.title)} — ${money(v.price)}</option>`
   ).join('');
 
+  const thumbnails = images.length > 1 ? `
+    <div class="product-thumbs">
+      ${images.map((src, i) => `
+        <button class="product-thumb ${i === 0 ? 'active' : ''}" type="button" data-src="${escapeAttr(src)}" aria-label="View product image ${i + 1}">
+          <img src="${escapeAttr(src)}" alt="">
+        </button>`).join('')}
+    </div>` : '';
+
   $('#productDialogContent').innerHTML = `
     <div class="product-dialog-grid">
-      <div>${productImage(p) ? `<img src="${escapeAttr(productImage(p))}" alt="${escapeAttr(p.title)}">` : ''}</div>
+      <div class="product-gallery">
+        ${mainImage ? `<img id="dialogMainImage" src="${escapeAttr(mainImage)}" alt="${escapeAttr(p.title)}">` : ''}
+        ${thumbnails}
+      </div>
       <div class="product-dialog-copy">
         <p class="eyebrow">${escapeHtml((p.tags || []).slice(0,2).join(' ✦ ') || 'WILD SAGE')}</p>
         <h2>${escapeHtml(p.title)}</h2>
         <p class="price">From ${money(p.minPrice)}</p>
-        <div>${p.description || ''}</div>
-        <label for="variantSelect">Choose your option</label>
-        <select id="variantSelect">${variants}</select>
-        <button id="dialogAdd">Add to bag</button>
+        <div class="product-description">${p.description || ''}</div>
+
+        ${liveVariants.length ? `
+          <label for="variantSelect">Size / color</label>
+          <select id="variantSelect">${variants}</select>
+
+          <label for="quantitySelect">Quantity</label>
+          <select id="quantitySelect">
+            <option value="1">1</option><option value="2">2</option>
+            <option value="3">3</option><option value="4">4</option>
+          </select>
+
+          <button id="dialogAdd">Add to bag</button>
+          <p class="availability-note">Available Printify options are shown when availability data is provided.</p>
+        ` : `<p class="sold-out">This piece is currently unavailable.</p>`}
       </div>
     </div>`;
-  $('#dialogAdd').addEventListener('click', () => {
-    const id = $('#variantSelect').value;
-    const variant = p.variants.find(v => String(v.id) === String(id));
-    addToCart(p, variant, 1);
-    dialog.close();
-    openBag();
+
+  $$('.product-thumb', $('#productDialogContent')).forEach(btn => {
+    btn.addEventListener('click', () => {
+      const main = $('#dialogMainImage');
+      if (main) main.src = btn.dataset.src;
+      $$('.product-thumb', $('#productDialogContent')).forEach(x => x.classList.remove('active'));
+      btn.classList.add('active');
+    });
   });
+
+  if (liveVariants.length) {
+    const select = $('#variantSelect');
+    const price = $('.price', $('#productDialogContent'));
+
+    const updatePrice = () => {
+      const variant = liveVariants.find(v => String(v.id) === String(select.value));
+      if (variant) price.textContent = money(variant.price);
+    };
+
+    select.addEventListener('change', updatePrice);
+    updatePrice();
+
+    $('#dialogAdd').addEventListener('click', () => {
+      const variant = liveVariants.find(v => String(v.id) === String(select.value));
+      const quantity = Math.max(1, Number($('#quantitySelect').value || 1));
+      addToCart(p, variant, quantity);
+      dialog.close();
+      openBag();
+    });
+  }
+
   dialog.showModal();
 }
-
 function addToCart(product, variant, quantity = 1) {
   if (!variant) return;
   const key = `${product.id}:${variant.id}`;
