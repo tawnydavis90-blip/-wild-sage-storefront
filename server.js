@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import crypto from 'crypto';
+import Stripe from 'stripe';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -9,6 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
 const API_BASE = 'https://api.printify.com/v1';
 let resolvedShopId = null;
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -115,6 +117,80 @@ app.get('/api/products/:id', async (req, res) => {
     res.json(normalizeProduct(p));
   } catch (err) {
     res.status(err.status || 502).json({ error: 'Unable to load product', detail: err.detail || err.message });
+  }
+});
+
+
+app.post('/api/checkout', async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Stripe is not configured.' });
+
+  const { items } = req.body || {};
+  if (!Array.isArray(items) || !items.length) {
+    return res.status(400).json({ error: 'Your bag is empty.' });
+  }
+
+  try {
+    // Re-read every product from Printify so the browser cannot choose its own price.
+    const shopId = await getShopId();
+    const lineItems = [];
+    const orderItems = [];
+
+    for (const item of items) {
+      const product = await printify(`/shops/${shopId}/products/${encodeURIComponent(item.productId)}.json`);
+      const variant = (product.variants || []).find(v =>
+        String(v.id) === String(item.variantId) &&
+        v.is_enabled !== false &&
+        v.is_available !== false
+      );
+      if (!variant) throw new Error(`A selected option for "${product.title}" is no longer available.`);
+
+      const quantity = Math.max(1, Math.min(10, Number(item.quantity || 1)));
+      const image = product.images?.find(i => (i.variant_ids || []).includes(Number(variant.id)))?.src
+        || product.images?.[0]?.src;
+
+      lineItems.push({
+        price_data: {
+          currency: 'usd',
+          unit_amount: Number(variant.price),
+          product_data: {
+            name: product.title,
+            description: variant.title,
+            ...(image ? { images: [image] } : {})
+          }
+        },
+        quantity
+      });
+
+      orderItems.push({
+        productId: product.id,
+        variantId: Number(variant.id),
+        quantity
+      });
+    }
+
+    const origin = process.env.PUBLIC_STORE_URL || `${req.protocol}://${req.get('host')}`;
+    const cartId = crypto.randomUUID();
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      line_items: lineItems,
+      success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/?checkout=cancelled`,
+      shipping_address_collection: { allowed_countries: ['US'] },
+      phone_number_collection: { enabled: true },
+      billing_address_collection: 'auto',
+      customer_creation: 'always',
+      client_reference_id: cartId,
+      metadata: {
+        cart_id: cartId,
+        printify_items: JSON.stringify(orderItems)
+      }
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Stripe checkout error:', err);
+    res.status(400).json({ error: err.message || 'Unable to start checkout.' });
   }
 });
 
