@@ -289,9 +289,59 @@ $('#newsletterForm').addEventListener('submit', e => {
   e.currentTarget.reset();
 });
 
-$('#checkoutBtn').addEventListener('click', () => {
-  $('#checkoutMessage').textContent = 'Checkout is the next step to connect. Your bag is saved.';
+$('#checkoutBtn').addEventListener('click', async () => {
+  const message = $('#checkoutMessage');
+  const button = $('#checkoutBtn');
+
+  if (!state.cart.length) {
+    message.textContent = 'Your bag is empty.';
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = 'Opening secure checkout…';
+  message.textContent = '';
+
+  try {
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        items: state.cart.map(item => ({
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity
+        }))
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || 'Unable to start checkout.');
+    if (!data?.url) throw new Error('Stripe did not return a checkout link.');
+
+    window.location.href = data.url;
+  } catch (err) {
+    console.error(err);
+    message.textContent = err.message || 'Unable to open checkout.';
+    button.disabled = false;
+    button.textContent = 'Checkout';
+  }
 });
+
+const checkoutParams = new URLSearchParams(window.location.search);
+if (checkoutParams.get('checkout') === 'success') {
+  state.cart = [];
+  saveCart();
+  setTimeout(() => {
+    alert('Payment received. Thank you for shopping Wild Sage ♡');
+    history.replaceState({}, '', window.location.pathname);
+  }, 250);
+} else if (checkoutParams.get('checkout') === 'cancelled') {
+  setTimeout(() => {
+    alert('Checkout was cancelled. Your bag is still saved.');
+    history.replaceState({}, '', window.location.pathname);
+  }, 250);
+}
 
 renderCart();
 loadProducts();
