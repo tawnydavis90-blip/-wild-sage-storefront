@@ -1,45 +1,239 @@
-const $ = s => document.querySelector(s);
-const $$ = s => [...document.querySelectorAll(s)];
-let products = [];
-let activeFilter = 'All';
-let cart = [];
+const state = {
+  products: [],
+  filtered: [],
+  cart: JSON.parse(localStorage.getItem('wildSageCart') || '[]')
+};
 
-const fmt = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n || 0);
-const imageOf = p => p.images?.find(i=>i.position==='front')?.src || p.images?.[0]?.src || '';
+const $ = (s, root = document) => root.querySelector(s);
+const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+const money = n => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(n || 0));
 
-async function loadProducts(){
-  try{
-    const r = await fetch('/api/products');
-    if(!r.ok) throw new Error('Could not load catalog');
-    const data = await r.json(); products = data.products || [];
-    $('#status').textContent = data.source === 'demo' ? 'Preview catalog — connect Printify to replace these with your live products.' : `${products.length} live Printify products`;
+function saveCart() {
+  localStorage.setItem('wildSageCart', JSON.stringify(state.cart));
+  renderCart();
+}
+
+function cartCount() {
+  return state.cart.reduce((sum, x) => sum + Number(x.quantity || 1), 0);
+}
+
+function productImage(p) {
+  return p?.images?.find(i => i.position === 'front')?.src || p?.images?.[0]?.src || '';
+}
+
+function tagsText(p) {
+  return (p.tags || []).join(' ').toLowerCase();
+}
+
+function categoryMatch(p, filter) {
+  if (filter === 'all') return true;
+  const haystack = `${p.title || ''} ${tagsText(p)}`.toLowerCase();
+  if (filter === 'crops') return /crop|cropped/.test(haystack);
+  if (filter === 'tanks') return /tank/.test(haystack);
+  if (filter === 'tees') return /\btee\b|t-shirt|shirt/.test(haystack);
+  if (filter === 'hoodies') return /hoodie|sweatshirt/.test(haystack);
+  if (filter === 'fall') return /fall|autumn|halloween|horror/.test(haystack);
+  return haystack.includes(filter);
+}
+
+async function loadProducts() {
+  const status = $('#statusCard');
+  try {
+    const res = await fetch('/api/products', { headers: { Accept: 'application/json' } });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.detail || data?.error || 'Could not load catalog');
+
+    state.products = Array.isArray(data.products) ? data.products : [];
+    state.filtered = state.products.slice();
+
+    if (!state.products.length) {
+      status.textContent = 'Your Printify connection is live, but there are no visible products in this shop yet.';
+      return;
+    }
+
+    status.hidden = true;
     renderProducts();
-  }catch(e){ $('#status').textContent = e.message; }
+  } catch (err) {
+    console.error(err);
+    status.hidden = false;
+    status.innerHTML = `<strong>Could not load catalog.</strong><br><small>${escapeHtml(String(err.message || err))}</small>`;
+  }
 }
-function matches(p){ return activeFilter==='All' || (p.tags||[]).some(t=>String(t).toLowerCase().includes(activeFilter.toLowerCase())) || p.title.toLowerCase().includes(activeFilter.toLowerCase()); }
-function renderProducts(){
-  const list = products.filter(matches);
-  $('#productGrid').innerHTML = list.map(p=>`<article class="product-card" data-id="${p.id}" tabindex="0"><div class="product-media"><img src="${imageOf(p)}" alt="${p.title}" loading="lazy"><span class="tag">${(p.tags||[])[0]||'Wild Sage'}</span></div><div class="product-info"><div><h3>${p.title}</h3><p>${p.variants?.length||0} options</p></div><div class="price">from ${fmt(p.minPrice)}</div></div></article>`).join('') || '<p>No pieces in this collection yet.</p>';
-  $$('.product-card').forEach(card=>{ const open=()=>openProduct(card.dataset.id); card.addEventListener('click',open);card.addEventListener('keydown',e=>{if(e.key==='Enter')open()}) });
+
+function renderProducts() {
+  const grid = $('#productGrid');
+  grid.innerHTML = '';
+
+  if (!state.filtered.length) {
+    grid.innerHTML = `<div class="status-card">No pieces match this collection yet.</div>`;
+    return;
+  }
+
+  state.filtered.forEach(p => {
+    const card = document.createElement('article');
+    card.className = 'product-card';
+    const img = productImage(p);
+    card.innerHTML = `
+      <div class="product-image-wrap">
+        ${img ? `<img class="product-image" src="${escapeAttr(img)}" alt="${escapeAttr(p.title)}" loading="lazy">` : ''}
+        <span class="product-badge">${escapeHtml((p.tags || [])[0] || 'Wild Sage')}</span>
+      </div>
+      <div class="product-info">
+        <h3 class="product-title">${escapeHtml(p.title)}</h3>
+        <p class="product-price">From ${money(p.minPrice)}</p>
+        <div class="variant-dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <div class="card-actions">
+          <button class="details" type="button">Details</button>
+          <button class="quick-add" type="button">Quick add</button>
+        </div>
+      </div>`;
+    $('.details', card).addEventListener('click', () => openProduct(p));
+    $('.product-image-wrap', card).addEventListener('click', () => openProduct(p));
+    $('.quick-add', card).addEventListener('click', () => quickAdd(p));
+    grid.appendChild(card);
+  });
 }
-function setFilter(f){activeFilter=f;$$('[data-filter]').forEach(b=>b.classList.toggle('active',b.dataset.filter===f));renderProducts();document.querySelector('#shop')?.scrollIntoView({behavior:'smooth'});}
-$$('[data-filter]').forEach(b=>b.addEventListener('click',()=>setFilter(b.dataset.filter)));
-function openProduct(id){
-  const p=products.find(x=>x.id===id);if(!p)return;
-  $('#productDetail').innerHTML=`<div class="detail-grid"><img src="${imageOf(p)}" alt="${p.title}"><div class="detail-copy"><p class="eyebrow">WILD SAGE APPAREL</p><h2>${p.title}</h2><p class="price">from ${fmt(p.minPrice)}</p><p class="desc">${p.description||'Made to order and made to stand out.'}</p><label for="variant">Choose your size / color</label><select id="variant">${(p.variants||[]).map(v=>`<option value="${v.id}" data-price="${v.price}">${v.title} — ${fmt(v.price)}</option>`).join('')}</select><button class="add-btn" id="addToBag">Add to bag</button></div></div>`;
-  $('#addToBag').addEventListener('click',()=>{const sel=$('#variant');const v=p.variants.find(x=>String(x.id)===sel.value);addToCart(p,v);$('#productDialog').close();openCart();});
-  $('#productDialog').showModal();
+
+function quickAdd(p) {
+  const variant = p.variants?.[0];
+  if (!variant) return openProduct(p);
+  addToCart(p, variant, 1);
+  openBag();
 }
-function addToCart(p,v){const key=`${p.id}:${v.id}`;const ex=cart.find(x=>x.key===key);if(ex)ex.quantity++;else cart.push({key,productId:p.id,variantId:v.id,title:p.title,variant:v.title,price:v.price,image:imageOf(p),quantity:1});renderCart();}
-function renderCart(){
-  $('#cartCount').textContent=cart.reduce((s,x)=>s+x.quantity,0);
-  $('#cartItems').innerHTML=cart.length?cart.map((x,i)=>`<div class="cart-row"><img src="${x.image}" alt=""><div><h4>${x.title}</h4><p>${x.variant}</p><div class="qty"><button data-act="minus" data-i="${i}">−</button><span>${x.quantity}</span><button data-act="plus" data-i="${i}">+</button></div><button class="remove" data-act="remove" data-i="${i}">Remove</button></div><strong>${fmt(x.price*x.quantity)}</strong></div>`).join(''):'<p>Your bag is wandering around empty.</p>';
-  $('#subtotal').textContent=fmt(cart.reduce((s,x)=>s+x.price*x.quantity,0));
-  $$('[data-act]').forEach(b=>b.addEventListener('click',()=>{const i=Number(b.dataset.i);if(b.dataset.act==='plus')cart[i].quantity++;if(b.dataset.act==='minus')cart[i].quantity=Math.max(1,cart[i].quantity-1);if(b.dataset.act==='remove')cart.splice(i,1);renderCart();}));
+
+function openProduct(p) {
+  const dialog = $('#productDialog');
+  const variants = (p.variants || []).map(v =>
+    `<option value="${escapeAttr(String(v.id))}">${escapeHtml(v.title)} — ${money(v.price)}</option>`
+  ).join('');
+
+  $('#productDialogContent').innerHTML = `
+    <div class="product-dialog-grid">
+      <div>${productImage(p) ? `<img src="${escapeAttr(productImage(p))}" alt="${escapeAttr(p.title)}">` : ''}</div>
+      <div class="product-dialog-copy">
+        <p class="eyebrow">${escapeHtml((p.tags || []).slice(0,2).join(' ✦ ') || 'WILD SAGE')}</p>
+        <h2>${escapeHtml(p.title)}</h2>
+        <p class="price">From ${money(p.minPrice)}</p>
+        <div>${p.description || ''}</div>
+        <label for="variantSelect">Choose your option</label>
+        <select id="variantSelect">${variants}</select>
+        <button id="dialogAdd">Add to bag</button>
+      </div>
+    </div>`;
+  $('#dialogAdd').addEventListener('click', () => {
+    const id = $('#variantSelect').value;
+    const variant = p.variants.find(v => String(v.id) === String(id));
+    addToCart(p, variant, 1);
+    dialog.close();
+    openBag();
+  });
+  dialog.showModal();
 }
-function openCart(){ $('#cartDrawer').classList.add('open');$('#scrim').classList.add('open');$('#cartDrawer').setAttribute('aria-hidden','false'); }
-function closeCart(){ $('#cartDrawer').classList.remove('open');$('#scrim').classList.remove('open');$('#cartDrawer').setAttribute('aria-hidden','true'); }
-$('#cartBtn').addEventListener('click',openCart);$('#closeCart').addEventListener('click',closeCart);$('#scrim').addEventListener('click',closeCart);$('#closeProduct').addEventListener('click',()=>$('#productDialog').close());
-$('#checkoutBtn').addEventListener('click',()=>{ $('#checkoutNote').textContent = cart.length ? 'Cart is ready. Connect your payment processor next; paid orders will then flow to Printify.' : 'Add a piece to your bag first.'; });
-$('#year').textContent=new Date().getFullYear();
-loadProducts();renderCart();
+
+function addToCart(product, variant, quantity = 1) {
+  if (!variant) return;
+  const key = `${product.id}:${variant.id}`;
+  const existing = state.cart.find(x => x.key === key);
+  if (existing) existing.quantity += quantity;
+  else state.cart.push({
+    key,
+    productId: product.id,
+    variantId: variant.id,
+    title: product.title,
+    variantTitle: variant.title,
+    price: variant.price,
+    image: productImage(product),
+    quantity
+  });
+  saveCart();
+}
+
+function renderCart() {
+  $('#bagCount').textContent = cartCount();
+  const holder = $('#bagItems');
+  holder.innerHTML = '';
+
+  if (!state.cart.length) {
+    holder.innerHTML = `<p style="color:#aaa397">Your bag is waiting for a little chaos.</p>`;
+  }
+
+  state.cart.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'bag-item';
+    row.innerHTML = `
+      ${item.image ? `<img src="${escapeAttr(item.image)}" alt="">` : '<div></div>'}
+      <div>
+        <h4>${escapeHtml(item.title)}</h4>
+        <p>${escapeHtml(item.variantTitle || '')}</p>
+        <p>${money(item.price)} × ${item.quantity}</p>
+      </div>
+      <button class="bag-remove" aria-label="Remove item">×</button>`;
+    $('.bag-remove', row).addEventListener('click', () => {
+      state.cart = state.cart.filter(x => x.key !== item.key);
+      saveCart();
+    });
+    holder.appendChild(row);
+  });
+
+  const subtotal = state.cart.reduce((sum, x) => sum + Number(x.price || 0) * Number(x.quantity || 1), 0);
+  $('#bagSubtotal').textContent = money(subtotal);
+}
+
+function openBag() {
+  $('#bagDrawer').classList.add('open');
+  $('#bagDrawer').setAttribute('aria-hidden', 'false');
+  $('#drawerBackdrop').hidden = false;
+}
+
+function closeBag() {
+  $('#bagDrawer').classList.remove('open');
+  $('#bagDrawer').setAttribute('aria-hidden', 'true');
+  $('#drawerBackdrop').hidden = true;
+}
+
+function escapeHtml(value='') {
+  return String(value).replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;'
+  }[ch]));
+}
+function escapeAttr(value='') { return escapeHtml(value); }
+
+$$('.category').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('.category').forEach(x => x.classList.remove('active'));
+    btn.classList.add('active');
+    const filter = btn.dataset.filter;
+    state.filtered = state.products.filter(p => categoryMatch(p, filter));
+    renderProducts();
+    $('#drop').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+
+$('#showAllBtn').addEventListener('click', () => {
+  state.filtered = state.products.slice();
+  $$('.category').forEach(x => x.classList.toggle('active', x.dataset.filter === 'all'));
+  renderProducts();
+});
+
+$('#bagBtn').addEventListener('click', openBag);
+$('#closeBag').addEventListener('click', closeBag);
+$('#drawerBackdrop').addEventListener('click', closeBag);
+$('#closeProduct').addEventListener('click', () => $('#productDialog').close());
+
+$('.menu-toggle').addEventListener('click', e => {
+  const open = $('.nav').classList.toggle('open');
+  e.currentTarget.setAttribute('aria-expanded', String(open));
+});
+
+$('#newsletterForm').addEventListener('submit', e => {
+  e.preventDefault();
+  $('#newsletterMessage').textContent = 'You’re on the list ♡';
+  e.currentTarget.reset();
+});
+
+$('#checkoutBtn').addEventListener('click', () => {
+  $('#checkoutMessage').textContent = 'Checkout is the next step to connect. Your bag is saved.';
+});
+
+renderCart();
+loadProducts();
