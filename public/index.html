@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Wild Sage Apparel</title>
+  <meta name="description" content="Wild Sage Apparel — untamed, earthy, beautifully broken." />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="announcement">FREE SPIRIT • LIMITED DROPS • MADE TO ORDER</div>
+  <header class="site-header">
+    <a class="brand" href="#">WILD <span>SAGE</span></a>
+    <nav aria-label="Primary">
+      <button class="nav-link active" data-filter="All">Shop</button>
+      <button class="nav-link" data-filter="Crops">Crops</button>
+      <button class="nav-link" data-filter="Tanks">Tanks</button>
+      <button class="nav-link" data-filter="Hoodies">Hoodies</button>
+    </nav>
+    <button id="cartBtn" class="cart-btn" aria-label="Open cart">Bag <span id="cartCount">0</span></button>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">WILD SAGE APPAREL</p>
+        <h1>Soft fabric.<br><em>Sharp edges.</em></h1>
+        <p>Boho soul, psychedelic horror, and black-line artwork for people who were never made to blend in.</p>
+        <a class="cta" href="#shop">Shop the drop <span>→</span></a>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="moon"></div><div class="stem s1">☾</div><div class="stem s2">✦</div><div class="mushroom">♠</div>
+        <p>SAME SOUL<br><strong>HIGHER STANDARDS</strong></p>
+      </div>
+    </section>
+
+    <section class="manifesto">
+      <p>EARTHY</p><span>✦</span><p>UNAPOLOGETIC</p><span>☾</span><p>BEAUTIFULLY BROKEN</p><span>✦</span><p>WILD</p>
+    </section>
+
+    <section id="shop" class="shop-section">
+      <div class="section-head">
+        <div><p class="eyebrow">THE CURRENT DROP</p><h2>Wear your contradiction.</h2></div>
+        <div class="filters" id="filters"><button class="filter active" data-filter="All">All</button><button class="filter" data-filter="Crops">Crops</button><button class="filter" data-filter="Tanks">Tanks</button><button class="filter" data-filter="Hoodies">Hoodies</button><button class="filter" data-filter="Dark Hippie">Dark Hippie</button></div>
+      </div>
+      <div id="status" class="status">Loading the drop…</div>
+      <div id="productGrid" class="product-grid"></div>
+    </section>
+
+    <section class="about-strip">
+      <div><p class="eyebrow">THE WILD SAGE WAY</p><h2>Made for the woman who refuses to water herself down.</h2></div>
+      <p>Small-batch energy without the inventory pile. Pieces are produced to order, so we can keep dropping new artwork without pretending everybody wants the same thing.</p>
+    </section>
+  </main>
+
+  <aside id="cartDrawer" class="drawer" aria-hidden="true">
+    <div class="drawer-head"><div><p class="eyebrow">YOUR BAG</p><h2>Wild things.</h2></div><button id="closeCart" aria-label="Close cart">×</button></div>
+    <div id="cartItems" class="cart-items"></div>
+    <div class="cart-foot"><div class="subtotal"><span>Subtotal</span><strong id="subtotal">$0.00</strong></div><p>Shipping and tax calculated at checkout.</p><button id="checkoutBtn" class="checkout">Checkout</button><small id="checkoutNote">Live payment connection is the next setup step.</small></div>
+  </aside>
+  <div id="scrim" class="scrim"></div>
+
+  <dialog id="productDialog" class="product-dialog"><button id="closeProduct" class="close-modal">×</button><div id="productDetail"></div></dialog>
+
+  <footer><a class="brand" href="#">WILD <span>SAGE</span></a><p>Untamed by design.</p><small>© <span id="year"></span> Wild Sage Apparel</small></footer>
+  <script src="/app.js"></script>
+</body>
+</html>
