@@ -44,13 +44,35 @@ async function printify(pathname, options = {}) {
 
 
 async function getShopId() {
-  const configured = process.env.PRINTIFY_SHOP_ID;
-  if (configured && configured !== 'replace_me') return configured;
   if (resolvedShopId) return resolvedShopId;
+
   const shops = await printify('/shops.json');
   const list = Array.isArray(shops) ? shops : (shops?.data || []);
-  if (!list.length) throw new Error('No Printify shops are available for this token');
-  resolvedShopId = String(list[0].id);
+
+  if (!list.length) {
+    throw new Error('No Printify shops are available for this token');
+  }
+
+  const targetShopName = 'wild sage apparel';
+
+  const shop = list.find(s =>
+    String(s.title || s.name || '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .toLowerCase() === targetShopName
+  );
+
+  if (!shop) {
+    const available = list
+      .map(s => s.title || s.name || `Shop ${s.id}`)
+      .join(', ');
+
+    throw new Error(
+      `Printify shop "${targetShopName}" was not found. Available shops: ${available}`
+    );
+  }
+
+  resolvedShopId = String(shop.id);
   return resolvedShopId;
 }
 
