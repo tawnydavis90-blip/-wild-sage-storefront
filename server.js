@@ -169,7 +169,7 @@ app.post('/api/webhooks/printify', (req, res) => {
   res.sendStatus(200);
 });
 
-app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/*splat', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const demoProducts = [
   {
