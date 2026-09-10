@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { registerAdminRoutes } from './admin.js';
 import { registerProductCollectionRoutes } from './product-collections.js';
 import { registerOrderDetailRoutes } from './order-details.js';
+import { registerAccountingRoutes } from './accounting.js';
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -19,6 +20,7 @@ app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
 registerAdminRoutes(app);
 registerProductCollectionRoutes(app);
 registerOrderDetailRoutes(app);
+registerAccountingRoutes(app);
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
