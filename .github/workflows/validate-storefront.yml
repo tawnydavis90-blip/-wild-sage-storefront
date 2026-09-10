@@ -1,0 +1,36 @@
+name: Validate Wild Sage Storefront
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate server syntax
+        run: node --check server.js
+
+      - name: Confirm storefront files
+        run: |
+          test -f public/index.html
+          test -f public/app.js
+          test -f public/styles.css
+          test -f public/selector-fix.js
+          test -f public/shipping.html
+          test -f public/returns.html
+          test -f public/privacy.html
+          test -f public/terms.html
+
+      - name: Confirm package metadata
+        run: node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json valid')"
