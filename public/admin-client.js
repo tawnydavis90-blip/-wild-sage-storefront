@@ -2,21 +2,70 @@
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const money=(n,c='USD')=>new Intl.NumberFormat('en-US',{style:'currency',currency:c}).format(Number(n||0));
-  let products=[],overrides=new Map(),storeConfig=null,analytics=null,session=null;
+  let products=[],overrides=new Map(),productCollections=new Map(),storeConfig=null,analytics=null,session=null;
   async function json(url,options={}){const res=await fetch(url,{headers:{'Content-Type':'application/json',...(options.headers||{})},...options});const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||'Request failed.');return data;}
   function primaryImage(p){return p?.images?.find(i=>i.position==='front')?.src||p?.images?.[0]?.src||'';}
   function settingsFor(id){return overrides.get(String(id))||{productId:String(id),featured:false,bestSeller:false,mockups:[]};}
+  function collectionsFor(id){return productCollections.get(String(id))||null;}
   function productName(id){return products.find(p=>String(p.id)===String(id))?.title||id||'Unknown product';}
   function setTab(name){$$('.admin-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));$$('.admin-panel').forEach(p=>p.classList.toggle('active',p.dataset.panel===name));}
   function metric(label,value){return `<div class="metric-card"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;}
+  function availableCollections(){return (storeConfig?.collections||[]).filter(c=>c.id!=='all');}
 
-  function renderProducts(){const q=($('#productSearch')?.value||'').trim().toLowerCase();const list=products.filter(p=>`${p.title} ${(p.tags||[]).join(' ')}`.toLowerCase().includes(q));$('#productCount').textContent=`${list.length} product${list.length===1?'':'s'}`;$('#productsGrid').innerHTML=list.map(p=>{const s=settingsFor(p.id),mockups=s.mockups||[];return `<article class="product-admin-card" data-product-id="${esc(p.id)}"><img src="${esc(mockups[0]||primaryImage(p))}" alt="${esc(p.title)}"><div><h2>${esc(p.title)}</h2><p class="muted">${esc((p.tags||[]).join(' • ')||'No Printify tags')}</p><div class="switch-row"><label class="switch-label"><input class="featured-toggle" type="checkbox" ${s.featured?'checked':''}> Featured</label><label class="switch-label"><input class="best-toggle" type="checkbox" ${s.bestSeller?'checked':''}> Best Seller</label></div><div class="mockups"><label>Custom mockups</label><input class="mockup-url" type="url" placeholder="Primary mockup image URL" value="${esc(mockups[0]||'')}"><input class="mockup-url" type="url" placeholder="Second mockup image URL" value="${esc(mockups[1]||'')}"><input class="mockup-url" type="url" placeholder="Third mockup image URL" value="${esc(mockups[2]||'')}"></div><div class="save-row"><span class="save-status"></span><button class="save-product" type="button">Save</button></div></div></article>`}).join('')||'<div class="empty-state">No products match your search.</div>';$$('.save-product').forEach(b=>b.onclick=saveCard);}
-  async function saveCard(e){const card=e.currentTarget.closest('.product-admin-card'),id=card.dataset.productId,status=$('.save-status',card);const payload={featured:$('.featured-toggle',card).checked,bestSeller:$('.best-toggle',card).checked,mockups:$$('.mockup-url',card).map(x=>x.value.trim()).filter(Boolean)};status.textContent='Saving…';try{const result=await json(`/api/admin/products/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify(payload)});overrides.set(String(id),result.item);status.textContent='Saved';const p=products.find(p=>String(p.id)===String(id)),img=$('img',card);img.src=payload.mockups[0]||primaryImage(p);loadOverview();}catch(err){status.textContent=err.message;}}
+  function ensureProductFilters(){
+    const toolbar=$('[data-panel="products"] .toolbar')||$('.toolbar'); if(!toolbar||$('#productFilter'))return;
+    const select=document.createElement('select');select.id='productFilter';select.setAttribute('aria-label','Filter products');
+    const base=[['all','All products'],['featured','Featured'],['best-seller','Best Seller'],['unassigned','No manual collection']];
+    select.innerHTML=base.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')+availableCollections().map(c=>`<option value="collection:${esc(c.id)}">${esc(c.label)}</option>`).join('');
+    const search=$('#productSearch'); if(search)search.insertAdjacentElement('afterend',select);else toolbar.prepend(select);
+    select.onchange=renderProducts;
+  }
+
+  function matchesProductFilter(p){
+    const filter=$('#productFilter')?.value||'all',s=settingsFor(p.id),assigned=collectionsFor(p.id);
+    if(filter==='featured')return Boolean(s.featured);
+    if(filter==='best-seller')return Boolean(s.bestSeller);
+    if(filter==='unassigned')return assigned===null;
+    if(filter.startsWith('collection:'))return Array.isArray(assigned)&&assigned.includes(filter.slice(11));
+    return true;
+  }
+
+  function collectionPicker(p){
+    const assigned=collectionsFor(p.id),manual=assigned!==null;
+    const boxes=availableCollections().map(c=>`<label class="collection-check"><input type="checkbox" class="product-collection" value="${esc(c.id)}" ${manual&&assigned.includes(c.id)?'checked':''}> <span>${esc(c.label)}</span></label>`).join('');
+    return `<div class="product-collections"><div class="collection-heading"><label>Collections</label><span class="collection-mode">${manual?'Manual assignment':'Automatic from product tags'}</span></div><div class="collection-checks">${boxes}</div><label class="collection-auto"><input type="checkbox" class="use-auto-collections" ${manual?'':'checked'}> Use automatic tag-based collections</label></div>`;
+  }
+
+  function renderProducts(){
+    ensureProductFilters();
+    const q=($('#productSearch')?.value||'').trim().toLowerCase();
+    const list=products.filter(p=>`${p.title} ${(p.tags||[]).join(' ')}`.toLowerCase().includes(q)&&matchesProductFilter(p));
+    $('#productCount').textContent=`${list.length} product${list.length===1?'':'s'}`;
+    $('#productsGrid').innerHTML=list.map(p=>{const s=settingsFor(p.id),mockups=s.mockups||[];return `<article class="product-admin-card" data-product-id="${esc(p.id)}"><img src="${esc(mockups[0]||primaryImage(p))}" alt="${esc(p.title)}"><div><h2>${esc(p.title)}</h2><p class="muted">${esc((p.tags||[]).join(' • ')||'No Printify tags')}</p><div class="switch-row"><label class="switch-label"><input class="featured-toggle" type="checkbox" ${s.featured?'checked':''}> Featured</label><label class="switch-label"><input class="best-toggle" type="checkbox" ${s.bestSeller?'checked':''}> Best Seller</label></div>${collectionPicker(p)}<div class="mockups"><label>Custom mockups</label><input class="mockup-url" type="url" placeholder="Primary mockup image URL" value="${esc(mockups[0]||'')}"><input class="mockup-url" type="url" placeholder="Second mockup image URL" value="${esc(mockups[1]||'')}"><input class="mockup-url" type="url" placeholder="Third mockup image URL" value="${esc(mockups[2]||'')}"></div><div class="save-row"><span class="save-status"></span><button class="save-product" type="button">Save</button></div></div></article>`}).join('')||'<div class="empty-state">No products match this filter.</div>';
+    $$('.save-product').forEach(b=>b.onclick=saveCard);
+    $$('.use-auto-collections').forEach(box=>box.onchange=e=>{const card=e.currentTarget.closest('.product-admin-card');$$('.product-collection',card).forEach(x=>x.disabled=e.currentTarget.checked);$('.collection-mode',card).textContent=e.currentTarget.checked?'Automatic from product tags':'Manual assignment';});
+    $$('.use-auto-collections:checked').forEach(box=>{const card=box.closest('.product-admin-card');$$('.product-collection',card).forEach(x=>x.disabled=true);});
+  }
+
+  async function saveCard(e){
+    const card=e.currentTarget.closest('.product-admin-card'),id=card.dataset.productId,status=$('.save-status',card),auto=$('.use-auto-collections',card).checked;
+    const payload={featured:$('.featured-toggle',card).checked,bestSeller:$('.best-toggle',card).checked,mockups:$$('.mockup-url',card).map(x=>x.value.trim()).filter(Boolean)};
+    const selected=auto?null:$$('.product-collection:checked',card).map(x=>x.value);
+    status.textContent='Saving…';
+    try{
+      const requests=[json(`/api/admin/products/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify(payload)})];
+      if(auto)requests.push(json(`/api/admin/product-collections/${encodeURIComponent(id)}`,{method:'DELETE'}));
+      else requests.push(json(`/api/admin/product-collections/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify({collections:selected})}));
+      const [result]=await Promise.all(requests);
+      overrides.set(String(id),result.item);
+      if(auto)productCollections.delete(String(id));else productCollections.set(String(id),selected);
+      status.textContent='Saved';
+      const p=products.find(p=>String(p.id)===String(id)),img=$('img',card);img.src=payload.mockups[0]||primaryImage(p);loadOverview();
+    }catch(err){status.textContent=err.message;}
+  }
 
   async function loadOverview(){const d=await json('/api/admin/overview');const merch=d.merchandising?.items||[],a=d.analytics?.windows?.['30d']||{},o=d.orders||{};$('#overviewCards').innerHTML=[metric('Products',products.length),metric('Featured',merch.filter(x=>x.featured).length),metric('Best Sellers',merch.filter(x=>x.bestSeller).length),metric('Paid revenue*',o.configured?money(o.revenue):'Not connected')].join('');$('#overviewActivity').innerHTML=`<div class="activity-list"><div class="activity-row"><span>Page views</span><strong>${a.pageViews||0}</strong></div><div class="activity-row"><span>Product views</span><strong>${a.productViews||0}</strong></div><div class="activity-row"><span>Add to bag</span><strong>${a.addToBags||0}</strong></div><div class="activity-row"><span>Checkout starts</span><strong>${a.checkoutStarts||0}</strong></div></div><p class="muted">*Revenue reflects the latest Stripe checkout sessions returned to this dashboard, not lifetime accounting.</p>`;$('#storeStatus').innerHTML=`<div class="status-list"><div class="status-row"><span>Database</span><strong>${session.databaseConfigured?'Connected':'Missing'}</strong></div><div class="status-row"><span>Stripe</span><strong>${session.stripeConfigured?'Connected':'Missing'}</strong></div><div class="status-row"><span>Featured section</span><strong>${d.config?.settings?.featuredEnabled?'On':'Off'}</strong></div><div class="status-row"><span>Best Sellers</span><strong>${d.config?.settings?.bestSellersEnabled?'On':'Off'}</strong></div></div>`;}
-
   async function loadOrders(){const d=await json('/api/admin/orders');const notice=$('#ordersNotice');if(!d.configured){notice.hidden=false;notice.textContent='Stripe is not configured on this service.';$('#ordersList').innerHTML='';return}notice.hidden=true;$('#ordersList').innerHTML=(d.orders||[]).map(o=>`<article class="order-card"><div><h3>${esc(o.name||o.customer||'Customer')}</h3><div class="order-meta">${esc(new Date(o.created).toLocaleString())}<br>${esc(o.customer||'No email')}</div></div><div class="order-items">${(o.items||[]).map(i=>`${esc(i.description)} × ${i.quantity}`).join('<br>')||'No line-item details'}</div><div class="order-total"><strong>${money(o.total,o.currency)}</strong><div class="${o.status==='paid'?'paid':'muted'}">${esc(o.status)}</div></div></article>`).join('')||'<div class="empty-state">No Stripe checkout sessions yet.</div>';}
-
   function renderAnalytics(windowKey='24h'){const a=analytics?.windows?.[windowKey]||{};$('#analyticsCards').innerHTML=[metric('Page views',a.pageViews||0),metric('Product views',a.productViews||0),metric('Add to bag',a.addToBags||0),metric('Checkout starts',a.checkoutStarts||0)].join('');$('#topProducts').innerHTML=(analytics?.topProducts||[]).map(r=>`<div class="top-product-row"><span>${esc(productName(r.productId))}</span><strong>${r.views}</strong></div>`).join('')||'<div class="empty-state">Product-view tracking will appear here as shoppers browse.</div>';}
   async function loadAnalytics(){analytics=await json('/api/admin/analytics');renderAnalytics($('.window-btn.active')?.dataset.window||'24h');}
 
@@ -25,14 +74,21 @@
   function homepagePayload(){const settings={};['announcementLeft','announcementRight','heroEyebrow','heroTitle','heroKicker','aboutEyebrow','aboutTitle','aboutText'].forEach(k=>settings[k]=$('#'+k).value);settings.featuredEnabled=$('#featuredEnabled').checked;settings.bestSellersEnabled=$('#bestSellersEnabled').checked;return settings;}
   async function saveHomepage(){const m=$('#homepageMessage');m.textContent='Saving…';try{const r=await json('/api/admin/store-config',{method:'PUT',body:JSON.stringify({settings:homepagePayload()})});storeConfig=r;fillConfig();m.textContent='Homepage saved.';loadOverview();}catch(err){m.textContent=err.message;}}
   async function saveSettings(){const m=$('#settingsMessage');m.textContent='Saving…';try{const r=await json('/api/admin/store-config',{method:'PUT',body:JSON.stringify({settings:{contactEmail:$('#contactEmail').value}})});storeConfig=r;fillConfig();m.textContent='Settings saved.';}catch(err){m.textContent=err.message;}}
-  async function saveCollections(){const m=$('#collectionsMessage');m.textContent='Saving…';const collections=$$('.collection-row').map(r=>({id:r.dataset.id,label:$('.collection-label',r).value,enabled:$('.collection-enabled',r).checked,sortOrder:Number($('.sort-order',r).value||0)}));try{const result=await json('/api/admin/collections',{method:'PUT',body:JSON.stringify({collections})});storeConfig=result;fillConfig();m.textContent='Collections saved.';}catch(err){m.textContent=err.message;}}
+  async function saveCollections(){const m=$('#collectionsMessage');m.textContent='Saving…';const collections=$$('.collection-row').map(r=>({id:r.dataset.id,label:$('.collection-label',r).value,enabled:$('.collection-enabled',r).checked,sortOrder:Number($('.sort-order',r).value||0)}));try{const result=await json('/api/admin/collections',{method:'PUT',body:JSON.stringify({collections})});storeConfig=result;fillConfig();$('#productFilter')?.remove();ensureProductFilters();renderProducts();m.textContent='Collections saved.';}catch(err){m.textContent=err.message;}}
 
-  async function loadDashboard(){const[catalog,merch]=await Promise.all([json('/api/products'),json('/api/admin/merchandising')]);products=Array.isArray(catalog.products)?catalog.products:[];overrides=new Map((merch.items||[]).map(x=>[String(x.productId),x]));if(!merch.configured){$('#setupNotice').hidden=false;$('#setupNotice').textContent='DATABASE_URL is not configured. Persistent admin settings and analytics are unavailable.';}renderProducts();await Promise.all([loadConfig(),loadAnalytics(),loadOverview()]);$('#businessId').textContent=session.businessId||'';$('#parentCompanyId').textContent=session.parentCompanyId||'';$('#databaseStatus').textContent=session.databaseConfigured?'Connected':'Not configured';$('#stripeStatus').textContent=session.stripeConfigured?'Connected':'Not configured';}
+  async function loadDashboard(){
+    const[catalog,merch,config,assigned]=await Promise.all([json('/api/products'),json('/api/admin/merchandising'),json('/api/admin/store-config'),json('/api/admin/product-collections')]);
+    products=Array.isArray(catalog.products)?catalog.products:[];overrides=new Map((merch.items||[]).map(x=>[String(x.productId),x]));storeConfig=config;productCollections=new Map((assigned.items||[]).map(x=>[String(x.productId),Array.isArray(x.collections)?x.collections:[]]));fillConfig();ensureProductFilters();renderProducts();
+    if(!merch.configured){$('#setupNotice').hidden=false;$('#setupNotice').textContent='DATABASE_URL is not configured. Persistent admin settings and analytics are unavailable.';}
+    await Promise.all([loadAnalytics(),loadOverview()]);$('#businessId').textContent=session.businessId||'';$('#parentCompanyId').textContent=session.parentCompanyId||'';$('#databaseStatus').textContent=session.databaseConfigured?'Connected':'Not configured';$('#stripeStatus').textContent=session.stripeConfigured?'Connected':'Not configured';
+  }
   async function checkSession(){session=await json('/api/admin/session');$('#loginView').hidden=session.authenticated;$('#dashboardView').hidden=!session.authenticated;if(session.authenticated)await loadDashboard();}
 
   $$('.admin-tab').forEach(b=>b.onclick=()=>{setTab(b.dataset.tab);if(b.dataset.tab==='orders')loadOrders();if(b.dataset.tab==='analytics')loadAnalytics();});$$('.window-btn').forEach(b=>b.onclick=()=>{$$('.window-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderAnalytics(b.dataset.window);});
   $('#loginForm').onsubmit=async e=>{e.preventDefault();const m=$('#loginMessage');m.textContent='Signing in…';try{await json('/api/admin/login',{method:'POST',body:JSON.stringify({password:$('#adminPassword').value})});m.textContent='';await checkSession();}catch(err){m.textContent=err.message;}};
   $('#logoutButton').onclick=async()=>{await json('/api/admin/logout',{method:'POST'});location.reload();};
   $('#productSearch').oninput=renderProducts;$('#refreshOverview').onclick=loadOverview;$('#refreshOrders').onclick=loadOrders;$('#refreshAnalytics').onclick=loadAnalytics;$('#saveHomepage').onclick=saveHomepage;$('#saveSettings').onclick=saveSettings;$('#saveCollections').onclick=saveCollections;
+
+  const style=document.createElement('style');style.textContent=`#productFilter{min-height:46px;border:1px solid var(--line);background:#10120e;color:var(--cream);padding:0 12px;min-width:190px}.product-collections{margin:18px 0;padding:15px;border:1px solid var(--line);background:rgba(255,255,255,.018)}.collection-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.collection-heading label{margin:0}.collection-mode{font-size:.68rem;color:var(--muted)}.collection-checks{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.collection-check{display:flex;align-items:center;gap:7px;border:1px solid var(--line);padding:8px 10px;font-size:.75rem;text-transform:none;letter-spacing:0;margin:0}.collection-check input,.collection-auto input{width:auto}.collection-auto{display:flex;align-items:center;gap:8px;font-size:.72rem;text-transform:none;letter-spacing:0;margin:10px 0 0;color:var(--muted)}@media(max-width:700px){#productFilter{width:100%}.collection-heading{align-items:flex-start;flex-direction:column}}`;document.head.appendChild(style);
   checkSession().catch(err=>{$('#loginMessage').textContent=err.message;});
 })();
