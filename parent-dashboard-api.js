@@ -60,6 +60,17 @@ async function companySummary(){
   }));
 }
 
+async function portfolioSites(){
+  const {rows}=await db().query(`
+    SELECT s.id,s.slug,s.name,s.domain,s.dashboard_url,s.platform,s.status,
+           b.slug AS business_slug,b.display_name AS business_name
+    FROM sites s
+    JOIN businesses b ON b.id=s.business_id
+    ORDER BY CASE WHEN s.slug='sage-ember-hq' THEN 0 ELSE 1 END,b.display_name,s.name
+  `);
+  return rows;
+}
+
 export function registerParentDashboardRoutes(app){
   app.get('/api/holding/health',requireParentKey,async(_req,res)=>{
     try{const result=await db().query('SELECT NOW() AS now');res.json({ok:true,database:true,at:result.rows[0].now});}
@@ -68,12 +79,12 @@ export function registerParentDashboardRoutes(app){
 
   app.get('/api/holding/summary',requireParentKey,async(_req,res)=>{
     try{
-      const businesses=await companySummary();
+      const [businesses,sites]=await Promise.all([companySummary(),portfolioSites()]);
       const operating=businesses.filter(b=>b.slug!=='sage-ember-holdings');
       res.json({
         company:'Sage & Ember Holdings',generatedAt:new Date().toISOString(),
-        totals:{businesses:operating.length,sites:operating.reduce((n,b)=>n+b.sites,0),orders:operating.reduce((n,b)=>n+b.orders,0),revenue:operating.reduce((n,b)=>n+b.revenue,0),expenses:operating.reduce((n,b)=>n+b.expenses,0),net:operating.reduce((n,b)=>n+b.net,0),sessions30d:operating.reduce((n,b)=>n+b.sessions30d,0)},
-        businesses
+        totals:{businesses:operating.length,sites:sites.length,orders:operating.reduce((n,b)=>n+b.orders,0),revenue:operating.reduce((n,b)=>n+b.revenue,0),expenses:operating.reduce((n,b)=>n+b.expenses,0),net:operating.reduce((n,b)=>n+b.net,0),sessions30d:operating.reduce((n,b)=>n+b.sessions30d,0)},
+        businesses,sites
       });
     }catch(err){res.status(500).json({error:'Unable to load holding-company summary',detail:err.message});}
   });
