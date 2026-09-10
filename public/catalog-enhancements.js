@@ -4,7 +4,7 @@
 
   function productForCard(card) {
     const title = $('.product-title', card)?.textContent?.trim() || '';
-    return (window.state?.products || window.__wildSageProducts || []).find(p => String(p.title || '').trim() === title) || null;
+    return (window.__wildSageProducts || []).find(p => String(p.title || '').trim() === title) || null;
   }
 
   function cardData(card) {
@@ -14,7 +14,11 @@
     const badge = $('.product-badge', card)?.textContent?.trim() || '';
     const product = productForCard(card);
     const tags = Array.isArray(product?.tags) ? product.tags.join(' ') : badge;
-    return { card, title, price, badge, tags, product };
+    const hasAdminFeatured = Object.prototype.hasOwnProperty.call(card.dataset, 'adminFeatured');
+    const hasAdminBest = Object.prototype.hasOwnProperty.call(card.dataset, 'adminBestSeller');
+    const featured = hasAdminFeatured ? card.dataset.adminFeatured === 'true' : /featured/i.test(tags);
+    const bestSeller = hasAdminBest ? card.dataset.adminBestSeller === 'true' : /best\s*seller/i.test(tags);
+    return { card, title, price, badge, tags, product, featured, bestSeller };
   }
 
   function ensureControls() {
@@ -25,24 +29,12 @@
     tools.id = 'catalogTools';
     tools.className = 'catalog-tools';
     tools.innerHTML = `
-      <div class="catalog-search-wrap">
-        <span aria-hidden="true">⌕</span>
-        <input id="catalogSearch" type="search" placeholder="Search the collection" aria-label="Search products">
-      </div>
-      <select id="catalogSort" aria-label="Sort products">
-        <option value="featured">Sort: Featured</option>
-        <option value="name">Name: A–Z</option>
-        <option value="price-low">Price: Low to High</option>
-        <option value="price-high">Price: High to Low</option>
-      </select>`;
+      <div class="catalog-search-wrap"><span aria-hidden="true">⌕</span><input id="catalogSearch" type="search" placeholder="Search the collection" aria-label="Search products"></div>
+      <select id="catalogSort" aria-label="Sort products"><option value="featured">Sort: Featured</option><option value="name">Name: A–Z</option><option value="price-low">Price: Low to High</option><option value="price-high">Price: High to Low</option></select>`;
     grid.before(tools);
-
     $('#catalogSearch').addEventListener('input', applyCatalogTools);
     $('#catalogSort').addEventListener('change', applyCatalogTools);
-    $('#searchBtn')?.addEventListener('click', () => {
-      $('#catalogSearch')?.focus();
-      $('#catalogTools')?.scrollIntoView({behavior:'smooth', block:'center'});
-    });
+    $('#searchBtn')?.addEventListener('click', () => { $('#catalogSearch')?.focus(); $('#catalogTools')?.scrollIntoView({behavior:'smooth', block:'center'}); });
   }
 
   function applyCatalogTools() {
@@ -51,14 +43,9 @@
     const query = ($('#catalogSearch')?.value || '').trim().toLowerCase();
     const sort = $('#catalogSort')?.value || 'featured';
     const items = $$('.product-card', grid).map(cardData);
-
-    items.forEach(({card,title,tags}) => {
-      const haystack = `${title} ${tags}`.toLowerCase();
-      card.hidden = Boolean(query && !haystack.includes(query));
-    });
-
+    items.forEach(({card,title,tags}) => { card.hidden = Boolean(query && !`${title} ${tags}`.toLowerCase().includes(query)); });
     const visible = items.filter(x => !x.card.hidden);
-    if (sort === 'featured') visible.sort((a,b) => Number(/featured/i.test(b.tags)) - Number(/featured/i.test(a.tags)));
+    if (sort === 'featured') visible.sort((a,b) => Number(b.featured) - Number(a.featured));
     if (sort === 'name') visible.sort((a,b) => a.title.localeCompare(b.title));
     if (sort === 'price-low') visible.sort((a,b) => a.price - b.price);
     if (sort === 'price-high') visible.sort((a,b) => b.price - a.price);
@@ -77,32 +64,27 @@
     return clone;
   }
 
-  function ensureShowcases() {
+  function rebuildShowcases() {
+    $('#featuredSection')?.remove();
+    $('#bestSellerSection')?.remove();
     const drop = $('#drop');
     const grid = $('#productGrid');
-    if (!drop || !grid || $('#featuredSection')) return;
+    if (!drop || !grid) return;
     const cards = $$('.product-card', grid);
     if (!cards.length) return;
-
     const info = cards.map(cardData);
-    const featured = info.filter(x => /featured/i.test(x.tags)).map(x => x.card);
-    const best = info.filter(x => /best\s*seller/i.test(x.tags)).map(x => x.card);
-
+    const featured = info.filter(x => x.featured).map(x => x.card);
+    const best = info.filter(x => x.bestSeller).map(x => x.card);
     const featuredCards = (featured.length ? featured : cards).slice(0, 4);
     const bestCards = (best.length ? best : cards.slice().reverse()).slice(0, 4);
 
     const featuredSection = document.createElement('section');
-    featuredSection.id = 'featuredSection';
-    featuredSection.className = 'showcase-section';
+    featuredSection.id = 'featuredSection'; featuredSection.className = 'showcase-section';
     featuredSection.innerHTML = `<div class="showcase-heading"><div><p class="eyebrow">CURATED FOR YOU</p><h2>Featured Pieces</h2></div><button class="text-button" data-scroll-shop>Shop all →</button></div><div class="showcase-grid" id="featuredGrid"></div>`;
-
     const bestSection = document.createElement('section');
-    bestSection.id = 'bestSellerSection';
-    bestSection.className = 'showcase-section showcase-section-alt';
+    bestSection.id = 'bestSellerSection'; bestSection.className = 'showcase-section showcase-section-alt';
     bestSection.innerHTML = `<div class="showcase-heading"><div><p class="eyebrow">MOST LOVED</p><h2>Best Sellers</h2></div><button class="text-button" data-scroll-shop>Shop all →</button></div><div class="showcase-grid" id="bestSellerGrid"></div>`;
-
-    drop.before(featuredSection);
-    drop.after(bestSection);
+    drop.before(featuredSection); drop.after(bestSection);
     featuredCards.forEach(card => $('#featuredGrid').appendChild(cloneForShowcase(card)));
     bestCards.forEach(card => $('#bestSellerGrid').appendChild(cloneForShowcase(card)));
     $$('[data-scroll-shop]').forEach(btn => btn.addEventListener('click', () => drop.scrollIntoView({behavior:'smooth'})));
@@ -112,12 +94,7 @@
   function refresh() {
     if (scheduled) return;
     scheduled = true;
-    requestAnimationFrame(() => {
-      scheduled = false;
-      ensureControls();
-      ensureShowcases();
-      applyCatalogTools();
-    });
+    requestAnimationFrame(() => { scheduled = false; ensureControls(); rebuildShowcases(); applyCatalogTools(); });
   }
 
   const observer = new MutationObserver(refresh);
@@ -126,7 +103,7 @@
     const grid = $('#productGrid');
     if (grid) observer.observe(grid, {childList:true});
     $$('.category, #showAllBtn').forEach(btn => btn.addEventListener('click', () => setTimeout(refresh, 0)));
+    window.addEventListener('wildsage:merchandising-ready', refresh);
   };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
-  else start();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
