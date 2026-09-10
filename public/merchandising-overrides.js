@@ -5,6 +5,18 @@
   let settings = new Map();
   let applying = false;
 
+  const baseOpenProduct = window.openProduct;
+  if (typeof baseOpenProduct === 'function') {
+    window.openProduct = function(product) {
+      const item = window.__wildSageMerchandising?.get?.(String(product?.id));
+      if (item?.mockups?.length) {
+        const custom = item.mockups.map(src => ({ src, variantIds: [], position: 'custom' }));
+        product = { ...product, images: [...custom, ...(product.images || [])] };
+      }
+      return baseOpenProduct(product);
+    };
+  }
+
   async function loadData() {
     try {
       const [productsRes, merchRes] = await Promise.all([fetch('/api/products'), fetch('/api/merchandising')]);
@@ -12,6 +24,7 @@
       const merchData = await merchRes.json();
       catalog = Array.isArray(productsData.products) ? productsData.products : [];
       settings = new Map((merchData.items || []).map(x => [String(x.productId), x]));
+      window.__wildSageProducts = catalog;
       window.__wildSageMerchandising = settings;
       apply();
     } catch (err) {
@@ -27,15 +40,20 @@
   function apply() {
     if (applying) return;
     const grid = $('#productGrid');
-    if (!grid || !settings.size) return;
+    if (!grid) return;
     applying = true;
     $$('.product-card', grid).forEach(card => {
       const product = productForCard(card);
       if (!product) return;
       const item = settings.get(String(product.id));
       card.dataset.productId = String(product.id);
-      card.dataset.adminFeatured = item?.featured ? 'true' : 'false';
-      card.dataset.adminBestSeller = item?.bestSeller ? 'true' : 'false';
+      if (item) {
+        card.dataset.adminFeatured = item.featured ? 'true' : 'false';
+        card.dataset.adminBestSeller = item.bestSeller ? 'true' : 'false';
+      } else {
+        delete card.dataset.adminFeatured;
+        delete card.dataset.adminBestSeller;
+      }
       if (item?.mockups?.[0]) {
         const img = $('.product-image', card);
         if (img) img.src = item.mockups[0];
