@@ -1,0 +1,20 @@
+/* Wild Sage launch polish: product detail + mobile usability */
+.product-dialog-copy .product-description{line-height:1.65;max-height:210px;overflow:auto;padding-right:6px}
+.product-care-blocks{margin-top:26px;border-top:1px solid var(--line)}
+.product-care-blocks details{border-bottom:1px solid var(--line);padding:14px 0}
+.product-care-blocks summary{cursor:pointer;text-transform:uppercase;letter-spacing:.1em;font-size:.72rem;font-weight:700}
+.product-care-blocks p{color:var(--muted);line-height:1.6;margin:10px 0 2px}
+.product-thumb.active{outline:2px solid var(--cream)!important;outline-offset:2px}
+.product-thumb img{object-fit:contain!important;background:#efe9df!important}
+@media(max-width:760px){
+  .announcement{font-size:.58rem;padding:8px 10px;gap:8px}.announcement-right{display:none}
+  .site-header{padding-left:14px!important;padding-right:14px!important}.brand-mark{font-size:1.2rem!important}.brand-tag{display:none!important}
+  .header-actions{gap:5px!important}.icon-button,.bag-button{min-height:42px!important}
+  #productDialog{width:100vw!important;max-width:none!important;height:100dvh!important;max-height:100dvh!important;margin:0!important;border:0!important;padding:0!important}
+  #productDialog .product-dialog-grid{display:block!important}.product-gallery{padding:12px 14px 0!important}.product-dialog-copy{padding:18px 16px 104px!important}
+  #productDialog .main-image-frame,#productDialog .product-gallery>img{max-height:52vh!important;object-fit:contain!important}
+  .drawer{width:min(94vw,420px)!important}.bag-summary{padding-bottom:max(18px,env(safe-area-inset-bottom))!important}
+  .product-grid,.showcase-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.product-info{padding:12px 8px!important}.product-title{font-size:.95rem!important}
+  .category-strip{padding-bottom:8px!important}.category-strip .category{min-height:44px!important}
+}
+@media(max-width:390px){.product-grid,.showcase-grid{grid-template-columns:1fr!important}.product-card{max-width:100%!important}}
