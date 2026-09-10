@@ -16,7 +16,7 @@
       const byId=new Map((data.collections||[]).map(c=>[String(c.id),c]));
       const strip=$('.category-strip'); if(strip){const buttons=$$('.category',strip);buttons.forEach(btn=>{const c=byId.get(String(btn.dataset.filter));if(c){btn.hidden=!c.enabled;const icon=btn.querySelector('span')?.outerHTML||'';btn.innerHTML=`${icon}${c.label}`;btn.dataset.order=String(c.sortOrder||0);}});buttons.sort((a,b)=>Number(a.dataset.order||0)-Number(b.dataset.order||0)).forEach(b=>strip.appendChild(b));}
       const toggleSections=()=>{const f=$('#featuredSection'),b=$('#bestSellerSection');if(f)f.hidden=s.featuredEnabled===false;if(b)b.hidden=s.bestSellersEnabled===false;};
-      toggleSections();window.addEventListener('wildsage:showcases-ready',toggleSections);setTimeout(toggleSections,500);
+      toggleSections();window.addEventListener('wildsage:showcases-rendered',toggleSections);setTimeout(toggleSections,500);
     }catch(err){console.warn('Store config unavailable:',err);}
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply);else apply();
