@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import pg from 'pg';
 import Stripe from 'stripe';
+import { printifyConfigured, printifyCostMapForExternalIds } from './printify-admin-data.js';
 
 const { Pool } = pg;
 const COOKIE_NAME = 'wild_sage_admin';
@@ -65,7 +66,7 @@ async function expensesFor(period){
   return {configured:true,items:rows.map(r=>({id:r.id,date:r.expense_date,category:r.category,vendor:r.vendor,description:r.description,amount:Number(r.amount_cents||0)/100,createdAt:r.created_at})),total:rows.reduce((s,r)=>s+Number(r.amount_cents||0),0)/100};
 }
 async function stripeAccounting(period){
-  if(!stripe) return {configured:false,grossSales:0,refunds:0,stripeFees:0,stripeNet:0,transactionCount:0};
+  if(!stripe) return {configured:false,grossSales:0,refunds:0,stripeFees:0,stripeNet:0,transactionCount:0,hasMore:false};
   const result=await stripe.balanceTransactions.list({limit:100,created:{gte:periodStart(period)}});
   const relevant=result.data.filter(t=>['charge','refund','payment','payment_refund','dispute'].includes(t.type));
   let gross=0,refunds=0,fees=0,net=0;
@@ -77,16 +78,65 @@ async function stripeAccounting(period){
   }
   return {configured:true,grossSales:gross/100,refunds:refunds/100,stripeFees:fees/100,stripeNet:net/100,transactionCount:relevant.length,hasMore:Boolean(result.has_more)};
 }
+async function paidStripeSessions(period){
+  if(!stripe) return {sessions:[],hasMore:false};
+  const result=await stripe.checkout.sessions.list({limit:100,created:{gte:periodStart(period)}});
+  return {sessions:result.data.filter(s=>s.payment_status==='paid'),hasMore:Boolean(result.has_more)};
+}
+async function printifyAccounting(period){
+  if(!printifyConfigured()) return {configured:false,paidOrders:0,matchedOrders:0,unmatchedPaidOrders:0,productCost:0,shippingCost:0,taxCost:0,discounts:0,fulfillmentCost:0,hasMoreStripeSessions:false,orders:[]};
+  const paid=await paidStripeSessions(period);
+  const ids=paid.sessions.map(s=>s.id);
+  const map=await printifyCostMapForExternalIds(ids);
+  const orders=[];
+  let productCost=0,shippingCost=0,taxCost=0,discounts=0,fulfillmentCost=0;
+  for(const session of paid.sessions){
+    const order=map.get(String(session.id));
+    if(!order) continue;
+    productCost+=Number(order.productCost||0);
+    shippingCost+=Number(order.shippingCost||0);
+    taxCost+=Number(order.taxCost||0);
+    discounts+=Number(order.discount||0);
+    fulfillmentCost+=Number(order.totalCost||0);
+    orders.push({stripeSessionId:session.id,printifyOrderId:order.id,status:order.status,customerTotal:Number(session.amount_total||0)/100,productCost:order.productCost,shippingCost:order.shippingCost,taxCost:order.taxCost,totalCost:order.totalCost});
+  }
+  return {
+    configured:true,
+    paidOrders:paid.sessions.length,
+    matchedOrders:orders.length,
+    unmatchedPaidOrders:Math.max(0,paid.sessions.length-orders.length),
+    productCost,
+    shippingCost,
+    taxCost,
+    discounts,
+    fulfillmentCost,
+    hasMoreStripeSessions:paid.hasMore,
+    orders
+  };
+}
 
 export function registerAccountingRoutes(app){
   app.get('/api/admin/accounting',requireAdmin,async(req,res)=>{
     try{
       const period=['30d','90d','ytd'].includes(req.query.period)?req.query.period:'30d';
-      const [stripeData,expenses,rate]=await Promise.all([stripeAccounting(period),expensesFor(period),taxReserveRate()]);
-      const taxableBase=Math.max(0,stripeData.grossSales-stripeData.refunds);
-      const reserve=taxableBase*(rate/100);
-      const netAfterExpenses=stripeData.stripeNet-expenses.total;
-      res.json({period,stripe:stripeData,expenses,taxReservePercent:rate,taxReserveEstimate:reserve,netAfterExpenses,disclaimer:'Tax reserve is an owner planning estimate, not a tax calculation or filing amount.'});
+      const [stripeData,expenses,rate,printifyData]=await Promise.all([stripeAccounting(period),expensesFor(period),taxReserveRate(),printifyAccounting(period)]);
+      const trueNet=stripeData.stripeNet-printifyData.fulfillmentCost-expenses.total;
+      const reserveBase=Math.max(0,trueNet);
+      const reserve=reserveBase*(rate/100);
+      res.json({
+        period,
+        stripe:stripeData,
+        printify:printifyData,
+        expenses,
+        taxReservePercent:rate,
+        taxReserveBase:reserveBase,
+        taxReserveEstimate:reserve,
+        netAfterExpenses:stripeData.stripeNet-expenses.total,
+        trueNet,
+        estimatedAfterTaxReserve:trueNet-reserve,
+        completeCostMatch:printifyData.configured&&printifyData.unmatchedPaidOrders===0&&!printifyData.hasMoreStripeSessions,
+        disclaimer:'Profit and tax reserve are operational estimates based on synced Stripe activity, matched Printify fulfillment costs, and expenses entered here. They are not tax filing or audited accounting figures.'
+      });
     }catch(err){console.error('Accounting summary error:',err);res.status(500).json({error:'Unable to load accounting summary.'});}
   });
   app.put('/api/admin/accounting/settings',requireAdmin,async(req,res)=>{
