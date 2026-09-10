@@ -7,6 +7,7 @@
   <title>Wild Sage Apparel — Wear Your Contradiction</title>
   <meta name="description" content="Earthy minds. Wilder souls. Higher standards. Wild Sage Apparel." />
   <link rel="stylesheet" href="/styles.css" />
+  <style>.product-info .variant-dots{display:none!important}</style>
 </head>
 <body>
   <div class="announcement">
@@ -20,21 +21,13 @@
       <span class="brand-sub">Apparel</span>
       <span class="brand-tag">WEAR YOUR CONTRADICTION</span>
     </a>
-
     <button class="menu-toggle" aria-label="Open menu" aria-expanded="false">☰</button>
-
     <nav class="nav" aria-label="Primary navigation">
-      <a href="#drop">Shop</a>
-      <a href="#drop">Clothing</a>
-      <a href="#collections">Collections</a>
-      <a href="#about">About</a>
+      <a href="#drop">Shop</a><a href="#drop">Clothing</a><a href="#collections">Collections</a><a href="#about">About</a>
     </nav>
-
     <div class="header-actions">
       <button class="icon-button" id="searchBtn" aria-label="Search">⌕</button>
-      <button class="bag-button" id="bagBtn" aria-label="Open shopping bag">
-        Bag <span id="bagCount">0</span>
-      </button>
+      <button class="bag-button" id="bagBtn" aria-label="Open shopping bag">Bag <span id="bagCount">0</span></button>
     </div>
   </header>
 
@@ -47,11 +40,7 @@
         <p class="hero-kicker">HIPPIE SOUL ✦ DARK THOUGHTS<br>BEAUTIFULLY BROKEN ✦ ALWAYS REAL</p>
         <a class="primary-cta" href="#drop">Shop the drop →</a>
       </div>
-      <div class="hero-note">
-        <span>Same girl…</span>
-        <span>different vibe.</span>
-        <span>Apparel for the wild ones ♡</span>
-      </div>
+      <div class="hero-note"><span>Same girl…</span><span>different vibe.</span><span>Apparel for the wild ones ♡</span></div>
     </section>
 
     <section class="category-strip" aria-label="Shop categories">
@@ -65,82 +54,33 @@
     </section>
 
     <section class="drop-section" id="drop">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">SHOP WHAT FEELS LIKE YOU</p>
-          <h2>The Current Drop</h2>
-        </div>
-        <button class="text-button" id="showAllBtn">View all →</button>
-      </div>
-
+      <div class="section-heading"><div><p class="eyebrow">SHOP WHAT FEELS LIKE YOU</p><h2>The Current Drop</h2></div><button class="text-button" id="showAllBtn">View all →</button></div>
       <div class="status-card" id="statusCard">Loading the drop…</div>
       <div class="product-grid" id="productGrid" aria-live="polite"></div>
     </section>
 
     <section class="collection-band" id="collections">
-      <div class="collection-card collection-photo">
-        <div class="collection-copy">
-          <p class="script">More than clothing ♡</p>
-          <p>A COLLECTION<br>FOR THE ONES<br>WHO FEEL<br>EVERYTHING.</p>
-          <a href="#drop">Explore collections →</a>
-        </div>
-      </div>
-      <div class="newsletter-card">
-        <div>
-          <p class="eyebrow">STAY IN THE LOOP</p>
-          <h3>Same chaos.<br>Different day.</h3>
-          <p>New drops, exclusive offers, and a little chaos in your inbox.</p>
-        </div>
-        <form id="newsletterForm">
-          <input type="email" id="newsletterEmail" placeholder="Your email" aria-label="Email address" required />
-          <button type="submit">Join</button>
-        </form>
-        <small id="newsletterMessage"></small>
-      </div>
+      <div class="collection-card collection-photo"><div class="collection-copy"><p class="script">More than clothing ♡</p><p>A COLLECTION<br>FOR THE ONES<br>WHO FEEL<br>EVERYTHING.</p><a href="#drop">Explore collections →</a></div></div>
+      <div class="newsletter-card"><div><p class="eyebrow">STAY IN THE LOOP</p><h3>Same chaos.<br>Different day.</h3><p>New drops, exclusive offers, and a little chaos in your inbox.</p></div><form id="newsletterForm"><input type="email" id="newsletterEmail" placeholder="Your email" aria-label="Email address" required /><button type="submit">Join</button></form><small id="newsletterMessage"></small></div>
     </section>
 
-    <section class="about-section" id="about">
-      <p class="eyebrow">WILD SAGE</p>
-      <h2>Soft edges. Strong standards.</h2>
-      <p>Made for the beautifully complicated—the wild, grounded, dark-hearted, sunshine-carrying souls who refuse to fit neatly in one box.</p>
-    </section>
+    <section class="about-section" id="about"><p class="eyebrow">WILD SAGE</p><h2>Soft edges. Strong standards.</h2><p>Made for the beautifully complicated—the wild, grounded, dark-hearted, sunshine-carrying souls who refuse to fit neatly in one box.</p></section>
   </main>
 
   <footer>
-    <div class="footer-brand">
-      <strong>WILD SAGE</strong>
-      <span>Apparel</span>
-    </div>
-    <div class="footer-links">
-      <a href="#drop">Shop</a>
-      <a href="#about">About</a>
-      <a href="#faq">FAQ</a>
-      <a href="#shipping">Shipping</a>
-      <a href="mailto:hello@wildsageapparel.com">Contact</a>
-    </div>
+    <div class="footer-brand"><strong>WILD SAGE</strong><span>Apparel</span></div>
+    <div class="footer-links"><a href="#drop">Shop</a><a href="#about">About</a><a href="#faq">FAQ</a><a href="#shipping">Shipping</a><a href="mailto:hello@wildsageapparel.com">Contact</a></div>
     <p>EARTHY MINDS ✦ WILDER SOULS ✦ HIGHER STANDARDS</p>
   </footer>
 
   <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
   <aside class="drawer" id="bagDrawer" aria-hidden="true">
-    <div class="drawer-head">
-      <h2>Your Bag</h2>
-      <button id="closeBag" aria-label="Close bag">×</button>
-    </div>
+    <div class="drawer-head"><h2>Your Bag</h2><button id="closeBag" aria-label="Close bag">×</button></div>
     <div id="bagItems" class="bag-items"></div>
-    <div class="bag-summary">
-      <div><span>Subtotal</span><strong id="bagSubtotal">$0.00</strong></div>
-      <p>Shipping is calculated at checkout.</p>
-      <button class="checkout-button" id="checkoutBtn">Checkout</button>
-      <small id="checkoutMessage"></small>
-    </div>
+    <div class="bag-summary"><div><span>Subtotal</span><strong id="bagSubtotal">$0.00</strong></div><p>Shipping is calculated at checkout.</p><button class="checkout-button" id="checkoutBtn">Checkout</button><small id="checkoutMessage"></small></div>
   </aside>
 
-  <dialog id="productDialog">
-    <button class="dialog-close" id="closeProduct" aria-label="Close product">×</button>
-    <div id="productDialogContent"></div>
-  </dialog>
-
+  <dialog id="productDialog"><button class="dialog-close" id="closeProduct" aria-label="Close product">×</button><div id="productDialogContent"></div></dialog>
   <script src="/app.js" defer></script>
   <script src="/selector-fix.js" defer></script>
 </body>
