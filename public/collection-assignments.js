@@ -40,6 +40,7 @@
     });
   }
 
+  function collectionUrl(filter){return `/collections/${encodeURIComponent(String(filter||'').toLowerCase())}`;}
   function activate(filter){
     currentFilter=filter||'all';
     $$('.category').forEach(b=>b.classList.toggle('active',b.dataset.filter===currentFilter));
@@ -60,7 +61,12 @@
   function bind(){
     document.addEventListener('click',e=>{
       const category=e.target.closest?.('.category');
-      if(category){e.preventDefault();e.stopImmediatePropagation();activate(category.dataset.filter);return;}
+      if(category){
+        const filter=category.dataset.filter||'all';
+        e.preventDefault();e.stopImmediatePropagation();
+        if(filter==='all'){activate('all');return;}
+        window.location.href=collectionUrl(filter);return;
+      }
       if(e.target.closest?.('#showAllBtn')){e.preventDefault();e.stopImmediatePropagation();activate('all');}
     },true);
     document.addEventListener('input',e=>{if(e.target?.id==='catalogSearch')setTimeout(applyFilter,0);},true);
