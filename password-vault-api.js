@@ -18,8 +18,10 @@ function auth(req,res,next){
 }
 function key(){
   const raw=String(process.env.PASSWORD_VAULT_KEY||'');
-  if(!/^[a-f0-9]{64}$/i.test(raw)) throw new Error('PASSWORD_VAULT_KEY is not configured correctly');
-  return Buffer.from(raw,'hex');
+  if(/^[a-f0-9]{64}$/i.test(raw)) return Buffer.from(raw,'hex');
+  const fallback=String(process.env.ADMIN_SESSION_SECRET||process.env.ADMIN_PASSWORD||'');
+  if(!fallback) throw new Error('Password vault encryption secret is not configured');
+  return crypto.createHash('sha256').update(`sage-ember-password-vault:v1:${fallback}`,'utf8').digest();
 }
 function encrypt(value){
   const iv=crypto.randomBytes(12),cipher=crypto.createCipheriv('aes-256-gcm',key(),iv);
