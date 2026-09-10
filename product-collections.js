@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import pg from 'pg';
+import { registerMediaRoutes } from './media-uploads.js';
 
 const { Pool } = pg;
 const COOKIE_NAME = 'wild_sage_admin';
@@ -43,6 +44,7 @@ async function readAssignments(){
 }
 
 export function registerProductCollectionRoutes(app){
+  registerMediaRoutes(app);
   app.get('/api/product-collections',async(_req,res)=>{try{res.json(await readAssignments())}catch(err){console.error('Product collections read error:',err);res.status(500).json({error:'Unable to load product collection assignments.'})}});
   app.get('/api/admin/product-collections',requireAdmin,async(_req,res)=>{try{res.json(await readAssignments())}catch(err){res.status(500).json({error:'Unable to load product collection assignments.'})}});
   app.put('/api/admin/product-collections/:id',requireAdmin,async(req,res)=>{
