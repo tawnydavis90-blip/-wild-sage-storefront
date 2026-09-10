@@ -2,72 +2,12 @@
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const esc=(v='')=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const money=(n,c='USD')=>new Intl.NumberFormat('en-US',{style:'currency',currency:c}).format(Number(n||0));
-  const drawer=$('#orderDetailDrawer'), backdrop=$('#orderDetailBackdrop'), content=$('#orderDetailContent'), close=$('#closeOrderDetail');
-  if(!drawer||!content) return;
-
-  function formatAddress(a){
-    if(!a) return 'Not provided';
-    return [a.line1,a.line2,[a.city,a.state,a.postalCode].filter(Boolean).join(', '),a.country].filter(Boolean).map(esc).join('<br>')||'Not provided';
-  }
+  const drawer=$('#orderDetailDrawer'), backdrop=$('#orderDetailBackdrop'), content=$('#orderDetailContent'), close=$('#closeOrderDetail'); if(!drawer||!content)return;
+  function formatAddress(a){if(!a)return'Not provided';return[a.line1,a.line2,[a.city,a.state,a.postalCode].filter(Boolean).join(', '),a.country].filter(Boolean).map(esc).join('<br>')||'Not provided';}
   function formatDate(v){return v?esc(new Date(v).toLocaleString()):'Not available';}
   function closeDrawer(){drawer.classList.remove('open');drawer.setAttribute('aria-hidden','true');if(backdrop)backdrop.hidden=true;}
-  function fulfillmentMarkup(f,currency){
-    if(!f?.configured) return `<section class="detail-card"><h3>Printify Fulfillment</h3><p class="muted">Printify is not configured on this service.</p></section>`;
-    if(!f?.matched) return `<section class="detail-card"><h3>Printify Fulfillment</h3><p class="muted">No matching Printify order was found yet. For a newly paid order, refresh after the Stripe webhook creates the fulfillment order.</p></section>`;
-    const o=f.order||{}, shipments=o.shipments||[];
-    return `<section class="detail-card"><h3>Printify Fulfillment</h3>
-      <div class="order-detail-status"><span class="status-pill">${esc(o.status||'unknown')}</span><strong>${money(o.totalCost,currency)}</strong></div>
-      <dl class="detail-dl">
-        <div><dt>Printify order</dt><dd>${esc(o.id||'Not available')}</dd></div>
-        <div><dt>External / Stripe ID</dt><dd>${esc(o.externalId||'Not available')}</dd></div>
-        <div><dt>Created</dt><dd>${formatDate(o.createdAt)}</dd></div>
-        <div><dt>Sent to production</dt><dd>${formatDate(o.sentToProductionAt)}</dd></div>
-        <div><dt>Fulfilled</dt><dd>${formatDate(o.fulfilledAt)}</dd></div>
-      </dl>
-      <div class="totals-list printify-costs">
-        <div><span>Product cost</span><strong>${money(o.productCost,currency)}</strong></div>
-        <div><span>Printify shipping</span><strong>${money(o.shippingCost,currency)}</strong></div>
-        <div><span>Printify tax</span><strong>${money(o.taxCost,currency)}</strong></div>
-        ${Number(o.discount||0)>0?`<div><span>Printify discount</span><strong>−${money(o.discount,currency)}</strong></div>`:''}
-        <div class="grand-total"><span>Total fulfillment cost</span><strong>${money(o.totalCost,currency)}</strong></div>
-      </div>
-      <h3>Tracking</h3>
-      <div class="detail-items">${shipments.length?shipments.map(s=>`<div class="detail-item"><div><strong>${esc(s.carrier||'Shipment')}</strong><span>${esc(s.trackingNumber||s.status||'Tracking pending')}</span></div><div>${esc(s.status||'')}</div>${s.trackingUrl?`<a href="${esc(s.trackingUrl)}" target="_blank" rel="noopener">Track package</a>`:''}</div>`).join(''):'<p class="muted">Tracking has not been issued yet.</p>'}</div>
-    </section>`;
-  }
-  async function openOrder(id){
-    drawer.classList.add('open');drawer.setAttribute('aria-hidden','false');if(backdrop)backdrop.hidden=false;
-    content.innerHTML='<div class="order-detail-loading">Loading order details…</div>';
-    try{
-      const res=await fetch(`/api/admin/orders/${encodeURIComponent(id)}`,{headers:{Accept:'application/json'}});
-      const d=await res.json(); if(!res.ok) throw new Error(d.error||'Unable to load order details.');
-      content.innerHTML=`
-        <div class="order-detail-head"><p class="eyebrow">ORDER DETAILS</p><h2>${esc(d.customer?.name||d.customer?.email||'Stripe order')}</h2><p class="muted">${esc(new Date(d.created).toLocaleString())}</p></div>
-        <div class="order-detail-status"><span class="${d.paymentStatus==='paid'?'paid-pill':'status-pill'}">${esc(d.paymentStatus||d.status||'unknown')}</span><strong>${money(d.amountTotal,d.currency)}</strong></div>
-        <div class="detail-grid">
-          <section class="detail-card"><h3>Customer</h3><p><strong>${esc(d.customer?.name||'Not provided')}</strong><br>${esc(d.customer?.email||'No email')}<br>${esc(d.customer?.phone||'No phone')}</p><p>${formatAddress(d.customer?.address)}</p></section>
-          <section class="detail-card"><h3>Shipping</h3><p><strong>${esc(d.shipping?.name||d.customer?.name||'Not provided')}</strong></p><p>${formatAddress(d.shipping?.address)}</p></section>
-        </div>
-        <section class="detail-card"><h3>Items</h3><div class="detail-items">${(d.items||[]).map(i=>`<div class="detail-item"><div><strong>${esc(i.productName||i.description)}</strong><span>${esc(i.description)}</span></div><div>× ${i.quantity}</div><strong>${money(i.amountTotal,i.currency||d.currency)}</strong></div>`).join('')||'<p class="muted">No line items found.</p>'}</div></section>
-        <section class="detail-card"><h3>Customer Totals</h3><div class="totals-list"><div><span>Subtotal</span><strong>${money(d.amountSubtotal,d.currency)}</strong></div><div><span>Shipping</span><strong>${money(d.shippingAmount,d.currency)}</strong></div><div><span>Tax</span><strong>${money(d.taxAmount,d.currency)}</strong></div><div><span>Discounts</span><strong>−${money(d.discountAmount,d.currency)}</strong></div><div class="grand-total"><span>Total paid</span><strong>${money(d.amountTotal,d.currency)}</strong></div></div></section>
-        ${fulfillmentMarkup(d.fulfillment,d.currency)}
-        <section class="detail-card"><h3>Payment & IDs</h3><dl class="detail-dl"><div><dt>Checkout session</dt><dd>${esc(d.id)}</dd></div><div><dt>Payment intent</dt><dd>${esc(d.payment?.intentId||'Not available')}</dd></div><div><dt>Payment method</dt><dd>${esc((d.payment?.paymentMethodTypes||[]).join(', ')||'Not available')}</dd></div><div><dt>Client reference</dt><dd>${esc(d.clientReferenceId||'Not available')}</dd></div><div><dt>Cart ID</dt><dd>${esc(d.metadata?.cart_id||'Not available')}</dd></div></dl></section>`;
-    }catch(err){content.innerHTML=`<div class="order-detail-error">${esc(err.message)}</div>`;}
-  }
-
-  async function bindRows(){
-    const list=$('#ordersList'); if(!list) return;
-    try{
-      const res=await fetch('/api/admin/orders',{headers:{Accept:'application/json'}}),d=await res.json();
-      if(!res.ok||!Array.isArray(d.orders)) return;
-      const rows=$$('.order-card',list);
-      rows.forEach((row,i)=>{const order=d.orders[i];if(!order)return;row.dataset.orderId=order.id;row.classList.add('clickable-order');row.setAttribute('role','button');row.setAttribute('tabindex','0');row.onclick=()=>openOrder(order.id);row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openOrder(order.id);}};});
-    }catch{}
-  }
-
-  const observer=new MutationObserver(()=>setTimeout(bindRows,0));
-  const ordersList=$('#ordersList'); if(ordersList)observer.observe(ordersList,{childList:true});
-  document.querySelector('[data-tab="orders"]')?.addEventListener('click',()=>setTimeout(bindRows,250));
-  close?.addEventListener('click',closeDrawer);backdrop?.addEventListener('click',closeDrawer);
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
+  function fulfillmentMarkup(f,currency){if(!f?.configured)return`<section class="detail-card"><h3>Printify Fulfillment</h3><p class="muted">Printify is not configured on this service.</p></section>`;if(!f?.matched)return`<section class="detail-card"><h3>Printify Fulfillment</h3><p class="muted">No matching Printify order was found yet. Refresh after fulfillment begins.</p></section>`;const o=f.order||{},shipments=o.shipments||[];return`<section class="detail-card"><h3>Printify Fulfillment</h3><div class="order-detail-status"><span class="status-pill">${esc(o.status||'unknown')}</span><strong>${money(o.totalCost,currency)}</strong></div><dl class="detail-dl"><div><dt>Printify order</dt><dd>${esc(o.id||'Not available')}</dd></div><div><dt>Created</dt><dd>${formatDate(o.createdAt)}</dd></div><div><dt>Sent to production</dt><dd>${formatDate(o.sentToProductionAt)}</dd></div><div><dt>Fulfilled</dt><dd>${formatDate(o.fulfilledAt)}</dd></div></dl><div class="totals-list printify-costs"><div><span>Product cost</span><strong>${money(o.productCost,currency)}</strong></div><div><span>Printify shipping</span><strong>${money(o.shippingCost,currency)}</strong></div><div><span>Printify tax</span><strong>${money(o.taxCost,currency)}</strong></div><div class="grand-total"><span>Total fulfillment cost</span><strong>${money(o.totalCost,currency)}</strong></div></div><h3>Tracking</h3><div class="detail-items">${shipments.length?shipments.map(s=>`<div class="detail-item"><div><strong>${esc(s.carrier||'Shipment')}</strong><span>${esc(s.trackingNumber||s.status||'Tracking pending')}</span></div>${s.trackingUrl?`<a href="${esc(s.trackingUrl)}" target="_blank" rel="noopener">Track package</a>`:''}</div>`).join(''):'<p class="muted">Tracking has not been issued yet.</p>'}</div></section>`;}
+  async function openOrder(id){drawer.classList.add('open');drawer.setAttribute('aria-hidden','false');if(backdrop)backdrop.hidden=false;content.innerHTML='<div class="order-detail-loading">Loading order details…</div>';try{const res=await fetch(`/api/admin/orders/${encodeURIComponent(id)}`,{headers:{Accept:'application/json'}}),d=await res.json();if(!res.ok)throw new Error(d.error||'Unable to load order details.');content.innerHTML=`<div class="order-detail-head"><p class="eyebrow">ORDER DETAILS</p><h2>${esc(d.customer?.name||d.customer?.email||'Wild Sage order')}</h2><p class="muted">${esc(new Date(d.created).toLocaleString())}</p></div><div class="order-detail-status"><span class="${d.paymentStatus==='paid'?'paid-pill':'status-pill'}">${esc(d.paymentStatus||d.status||'unknown')}</span><strong>${money(d.amountTotal,d.currency)}</strong></div><div class="detail-grid"><section class="detail-card"><h3>Customer</h3><p><strong>${esc(d.customer?.name||'Not provided')}</strong><br>${esc(d.customer?.email||'No email')}<br>${esc(d.customer?.phone||'No phone')}</p><p>${formatAddress(d.customer?.address)}</p></section><section class="detail-card"><h3>Shipping</h3><p><strong>${esc(d.shipping?.name||d.customer?.name||'Not provided')}</strong></p><p>${formatAddress(d.shipping?.address)}</p></section></div><section class="detail-card"><h3>Items</h3><div class="detail-items">${(d.items||[]).map(i=>`<div class="detail-item"><div><strong>${esc(i.productName||i.description)}</strong><span>${esc(i.description)}</span></div><div>× ${i.quantity}</div><strong>${money(i.amountTotal,i.currency||d.currency)}</strong></div>`).join('')||'<p class="muted">No line items found.</p>'}</div></section><section class="detail-card"><h3>Customer Totals</h3><div class="totals-list"><div><span>Subtotal</span><strong>${money(d.amountSubtotal,d.currency)}</strong></div><div><span>Shipping</span><strong>${money(d.shippingAmount,d.currency)}</strong></div><div><span>Tax</span><strong>${money(d.taxAmount,d.currency)}</strong></div><div><span>Discounts</span><strong>−${money(d.discountAmount,d.currency)}</strong></div><div class="grand-total"><span>Total paid</span><strong>${money(d.amountTotal,d.currency)}</strong></div></div></section>${fulfillmentMarkup(d.fulfillment,d.currency)}<section class="detail-card"><h3>Payment & IDs</h3><dl class="detail-dl"><div><dt>Checkout session</dt><dd>${esc(d.id)}</dd></div><div><dt>Payment intent</dt><dd>${esc(d.payment?.intentId||'Not available')}</dd></div><div><dt>Cart ID</dt><dd>${esc(d.metadata?.cart_id||'Not available')}</dd></div></dl></section>`;}catch(err){content.innerHTML=`<div class="order-detail-error">${esc(err.message)}</div>`;}}
+  async function bindRows(){const list=$('#ordersList');if(!list)return;let fallback=[];try{const res=await fetch('/api/admin/orders',{headers:{Accept:'application/json'}}),d=await res.json();if(res.ok&&Array.isArray(d.orders))fallback=d.orders;}catch{}$$('.order-card',list).forEach((row,i)=>{const id=row.dataset.orderId||fallback[i]?.id;if(!id)return;row.dataset.orderId=id;row.classList.add('clickable-order');row.setAttribute('role','button');row.setAttribute('tabindex','0');row.onclick=()=>openOrder(id);row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openOrder(id);}};});}
+  const observer=new MutationObserver(()=>setTimeout(bindRows,0));const ordersList=$('#ordersList');if(ordersList)observer.observe(ordersList,{childList:true});document.querySelector('[data-tab="orders"]')?.addEventListener('click',()=>setTimeout(bindRows,250));close?.addEventListener('click',closeDrawer);backdrop?.addEventListener('click',closeDrawer);document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
 })();
