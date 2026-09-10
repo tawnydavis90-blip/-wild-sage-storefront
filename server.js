@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import Stripe from 'stripe';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { registerAdminRoutes } from './admin.js';
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -13,7 +14,9 @@ let resolvedShopId = null;
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
+registerAdminRoutes(app);
 app.use(express.static(path.join(__dirname, 'public')));
+app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 const money = cents => Number(cents || 0) / 100;
 const titleCase = s => String(s || '').replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
