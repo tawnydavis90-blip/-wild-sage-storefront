@@ -15,6 +15,10 @@ function db(){
 function parseCookies(req){
   return Object.fromEntries(String(req.headers.cookie||'').split(';').map(v=>v.trim()).filter(Boolean).map(part=>{const i=part.indexOf('=');return [decodeURIComponent(part.slice(0,i)),decodeURIComponent(part.slice(i+1))]}));
 }
+function safeEqual(a,b){
+  a=String(a||'');b=String(b||'');
+  return a.length===b.length&&a.length>0&&crypto.timingSafeEqual(Buffer.from(a),Buffer.from(b));
+}
 function validAdminSession(req){
   const secret=String(process.env.ADMIN_SESSION_SECRET||process.env.ADMIN_PASSWORD||'');
   if(!secret)return false;
@@ -22,17 +26,17 @@ function validAdminSession(req){
   const parts=token.split('.');if(parts.length!==3)return false;
   const payload=`${parts[0]}.${parts[1]}`;
   const expected=crypto.createHmac('sha256',secret).update(payload).digest('hex'),actual=parts[2];
-  if(expected.length!==actual.length||!crypto.timingSafeEqual(Buffer.from(expected),Buffer.from(actual)))return false;
+  if(!safeEqual(actual,expected))return false;
   return Number(parts[0])>Date.now();
 }
 function requireParentKey(req,res,next){
   if(validAdminSession(req)) return next();
-  const expected=String(process.env.PARENT_DASHBOARD_API_KEY||process.env.ADMIN_PASSWORD||'');
   const auth=String(req.headers.authorization||'');
   const supplied=auth.startsWith('Bearer ')?auth.slice(7):'';
-  const ok=supplied.length===expected.length&&supplied.length>0&&crypto.timingSafeEqual(Buffer.from(supplied),Buffer.from(expected));
-  if(!ok)return res.status(401).json({error:'Unauthorized'});
-  next();
+  const parentKey=String(process.env.PARENT_DASHBOARD_API_KEY||'');
+  const adminPassword=String(process.env.ADMIN_PASSWORD||'');
+  if(safeEqual(supplied,parentKey)||safeEqual(supplied,adminPassword)) return next();
+  return res.status(401).json({error:'Unauthorized'});
 }
 
 async function companySummary(){
