@@ -1,6 +1,6 @@
 -- Sage & Ember Holdings central data platform
 -- Migration 001: shared core schema
--- Safe to review; this file is not executed automatically.
+-- Safe to re-run.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -177,7 +177,7 @@ CREATE TABLE IF NOT EXISTS inventory_levels (
   PRIMARY KEY (location_id, product_id)
 );
 
-CREATE TABLE IF NOT EXISTS analytics_events (
+CREATE TABLE IF NOT EXISTS core_analytics_events (
   id bigserial PRIMARY KEY,
   business_id uuid NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
   site_id uuid REFERENCES sites(id) ON DELETE SET NULL,
@@ -189,8 +189,8 @@ CREATE TABLE IF NOT EXISTS analytics_events (
   properties jsonb NOT NULL DEFAULT '{}'::jsonb,
   occurred_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_analytics_business_event_date ON analytics_events(business_id, event_name, occurred_at DESC);
-CREATE INDEX IF NOT EXISTS idx_analytics_visitor_date ON analytics_events(visitor_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_core_analytics_business_event_date ON core_analytics_events(business_id, event_name, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_core_analytics_visitor_date ON core_analytics_events(visitor_id, occurred_at DESC);
 
 CREATE TABLE IF NOT EXISTS form_definitions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -257,7 +257,6 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_log_business_date ON audit_log(business_id, created_at DESC);
 
--- Seed the businesses/sites we already know about. Safe to re-run.
 INSERT INTO businesses (slug, legal_name, display_name, business_type)
 VALUES
   ('sage-ember-holdings', 'Sage and Ember Holdings LLC', 'Sage & Ember Holdings', 'holding_company'),
