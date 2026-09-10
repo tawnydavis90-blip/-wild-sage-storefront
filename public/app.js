@@ -1,347 +1,312 @@
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+const money = value => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value || 0));
+
 const state = {
   products: [],
-  filtered: [],
+  filter: 'all',
+  query: '',
+  sort: 'featured',
   cart: JSON.parse(localStorage.getItem('wildSageCart') || '[]')
 };
 
-const $ = (s, root = document) => root.querySelector(s);
-const $$ = (s, root = document) => [...root.querySelectorAll(s)];
-const money = n => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(n || 0));
+const colorMap = {
+  black:'#171715', white:'#eeeae1', ivory:'#e8dfcc', natural:'#d8c8a9', cream:'#e2d5bd',
+  bone:'#cbbda4', grey:'#787a76', gray:'#787a76', charcoal:'#444744', green:'#5f684d',
+  olive:'#646846', sage:'#8d977c', brown:'#6f4b35', rust:'#9a5639', red:'#833b36',
+  pink:'#bd817b', blue:'#405c73', navy:'#28384b', purple:'#6c526e', sand:'#b9a484'
+};
+
+function escapeHtml(value = '') {
+  return String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[char]));
+}
+
+function stripHtml(value = '') {
+  const doc = new DOMParser().parseFromString(String(value), 'text/html');
+  return (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+function imageFor(product, variantId) {
+  return product?.images?.find(image => (image.variantIds || []).map(String).includes(String(variantId)))?.src
+    || product?.images?.find(image => image.position === 'front')?.src
+    || product?.images?.[0]?.src || '';
+}
+
+function uniqueImages(product) {
+  return [...new Set((product?.images || []).map(image => image.src).filter(Boolean))].slice(0, 8);
+}
+
+function liveVariants(product) {
+  return (product?.variants || []).filter(variant => variant.available !== false && variant.is_available !== false && variant.is_enabled !== false);
+}
+
+function variantParts(variant) {
+  const parts = String(variant.title || '').split(/\s*\/\s*|\s+-\s+/).map(value => value.trim()).filter(Boolean);
+  if (parts.length >= 2) return { color: parts[0], size: parts.slice(1).join(' / ') };
+  return { color: 'Standard', size: parts[0] || 'One size' };
+}
+
+function productHaystack(product) {
+  return `${product.title || ''} ${(product.tags || []).join(' ')} ${stripHtml(product.description || '')}`.toLowerCase();
+}
+
+function categoryMatch(product, filter) {
+  if (filter === 'all') return true;
+  const text = productHaystack(product);
+  if (filter === 'tees') return /\btee\b|t-shirt|shirt/.test(text);
+  if (filter === 'tanks') return /tank/.test(text);
+  if (filter === 'crops') return /crop|cropped/.test(text);
+  if (filter === 'hoodies') return /hoodie|sweatshirt|fleece/.test(text);
+  return text.includes(filter);
+}
+
+function filteredProducts() {
+  const result = state.products.filter(product =>
+    categoryMatch(product, state.filter) && (!state.query || productHaystack(product).includes(state.query))
+  );
+  if (state.sort === 'price-low') result.sort((a, b) => a.minPrice - b.minPrice);
+  if (state.sort === 'price-high') result.sort((a, b) => b.minPrice - a.minPrice);
+  if (state.sort === 'name') result.sort((a, b) => a.title.localeCompare(b.title));
+  return result;
+}
+
+async function loadProducts() {
+  const status = $('#catalogStatus');
+  try {
+    const response = await fetch('/api/products', { headers: { Accept: 'application/json' } });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || payload.error || 'The collection could not be loaded.');
+    state.products = Array.isArray(payload.products) ? payload.products : [];
+    if (!state.products.length) {
+      status.textContent = 'The shop is connected, but no visible products are published yet.';
+      return;
+    }
+    status.hidden = true;
+    updateHero();
+    renderCatalog();
+    renderBestSellers();
+    renderInstagram();
+  } catch (error) {
+    status.hidden = false;
+    status.innerHTML = `<strong>The collection is taking a little longer than expected.</strong><span>${escapeHtml(error.message)}</span>`;
+  }
+}
+
+function updateHero() {
+  const image = imageFor(state.products[0]);
+  if (image) $('#heroVisual').style.setProperty('--hero-image', `url("${image.replace(/"/g, '%22')}")`);
+}
+
+function productCard(product, compact = false) {
+  const article = document.createElement('article');
+  article.className = compact ? 'product-card compact' : 'product-card';
+  const colors = [...new Set(liveVariants(product).map(variant => variantParts(variant).color))].slice(0, 5);
+  article.innerHTML = `
+    <button class="product-image-button" type="button" aria-label="View ${escapeHtml(product.title)}">
+      <span class="product-tag">${escapeHtml((product.tags || [])[0] || 'Wild Sage')}</span>
+      <img src="${escapeHtml(imageFor(product))}" alt="${escapeHtml(product.title)}" loading="lazy">
+      <span class="quick-view">Quick view</span>
+    </button>
+    <div class="product-card-copy">
+      <div><h3>${escapeHtml(product.title)}</h3><p>From ${money(product.minPrice)}</p></div>
+      <div class="mini-swatches" aria-label="${colors.length} colors">${colors.map(color => `<span title="${escapeHtml(color)}" style="--swatch:${colorValue(color)}"></span>`).join('')}</div>
+    </div>`;
+  $('.product-image-button', article).addEventListener('click', () => openProduct(product));
+  return article;
+}
+
+function renderCatalog() {
+  const grid = $('#productGrid');
+  const products = filteredProducts();
+  grid.replaceChildren();
+  if (!products.length) {
+    grid.innerHTML = '<div class="empty-state"><span>☾</span><h3>No pieces found</h3><p>Try another collection or search.</p></div>';
+    return;
+  }
+  products.forEach(product => grid.appendChild(productCard(product)));
+}
+
+function renderBestSellers() {
+  const holder = $('#bestGrid');
+  holder.replaceChildren();
+  state.products.slice(0, 3).forEach(product => holder.appendChild(productCard(product, true)));
+}
+
+function renderInstagram() {
+  const images = state.products.flatMap(uniqueImages).slice(0, 4);
+  if (images.length < 4) return;
+  $('#instagramGrid').innerHTML = images.map((src, index) => `<div><img src="${escapeHtml(src)}" alt="Wild Sage community style ${index + 1}" loading="lazy"></div>`).join('');
+}
+
+function colorValue(name) {
+  const key = Object.keys(colorMap).find(color => String(name).toLowerCase().includes(color));
+  return key ? colorMap[key] : '#9a8a76';
+}
+
+function openProduct(product) {
+  const variants = liveVariants(product);
+  const parsed = variants.map(variant => ({ ...variant, ...variantParts(variant) }));
+  const colors = [...new Set(parsed.map(variant => variant.color))];
+  let selectedColor = colors[0] || '';
+  let selectedSize = parsed.find(variant => variant.color === selectedColor)?.size || '';
+  let quantity = 1;
+  const images = uniqueImages(product);
+  const dialog = $('#productDialog');
+  const detail = $('#productDetail');
+  const description = stripHtml(product.description) || 'Designed for the wild-hearted and made to become the piece you reach for again and again.';
+
+  detail.innerHTML = `
+    <div class="product-page">
+      <div class="gallery">
+        <div class="gallery-main"><img id="mainProductImage" src="${escapeHtml(images[0] || imageFor(product))}" alt="${escapeHtml(product.title)}"></div>
+        <div class="gallery-thumbs">${images.map((src, index) => `<button type="button" class="${index === 0 ? 'active' : ''}" data-image="${escapeHtml(src)}" aria-label="View image ${index + 1}"><img src="${escapeHtml(src)}" alt=""></button>`).join('')}</div>
+      </div>
+      <div class="product-panel">
+        <p class="kicker">${escapeHtml((product.tags || []).slice(0, 2).join(' · ') || 'WILD SAGE')}</p>
+        <h2>${escapeHtml(product.title)}</h2>
+        <p class="detail-price" id="detailPrice">From ${money(product.minPrice)}</p>
+        <p class="product-story">${escapeHtml(description)}</p>
+        <div class="option-block"><div class="option-heading"><span>Color</span><strong id="selectedColor">${escapeHtml(selectedColor)}</strong></div><div class="color-options" id="colorOptions"></div></div>
+        <div class="option-block"><div class="option-heading"><span>Size</span><button type="button" class="size-guide">Size guide</button></div><div class="size-options" id="sizeOptions"></div></div>
+        <div class="buy-row"><div class="quantity"><button type="button" id="qtyMinus" aria-label="Decrease quantity">−</button><span id="qtyValue">1</span><button type="button" id="qtyPlus" aria-label="Increase quantity">+</button></div><button class="add-button" id="addButton" type="button">Add to bag <span>·</span> <span id="addPrice"></span></button></div>
+        <p class="payment-note">Secure checkout · Made to order with Printify</p>
+        <div class="detail-accordions">
+          <details open><summary>Product story <span>+</span></summary><p>${escapeHtml(description)}</p></details>
+          <details><summary>Shipping & returns <span>+</span></summary><p>Each piece is made to order. Shipping timing and cost are shown at checkout. Contact us if your order arrives damaged or incorrect.</p></details>
+          <details><summary>Care instructions <span>+</span></summary><p>Machine wash cold, inside out, with like colors. Tumble dry low. Do not iron directly over the artwork.</p></details>
+        </div>
+      </div>
+    </div>`;
+
+  const selectedVariant = () => parsed.find(variant => variant.color === selectedColor && variant.size === selectedSize);
+
+  function updateOptions() {
+    $('#selectedColor', detail).textContent = selectedColor;
+    $('#colorOptions', detail).innerHTML = colors.map(color => `<button type="button" class="${color === selectedColor ? 'active' : ''}" data-color="${escapeHtml(color)}" aria-label="${escapeHtml(color)}" title="${escapeHtml(color)}"><span style="--swatch:${colorValue(color)}"></span></button>`).join('');
+    const sizes = [...new Set(parsed.filter(variant => variant.color === selectedColor).map(variant => variant.size))];
+    if (!sizes.includes(selectedSize)) selectedSize = sizes[0] || '';
+    $('#sizeOptions', detail).innerHTML = sizes.map(size => `<button type="button" class="${size === selectedSize ? 'active' : ''}" data-size="${escapeHtml(size)}">${escapeHtml(size)}</button>`).join('');
+    $$('#colorOptions button', detail).forEach(button => button.addEventListener('click', () => {
+      selectedColor = button.dataset.color;
+      selectedSize = parsed.find(variant => variant.color === selectedColor)?.size || '';
+      updateOptions();
+    }));
+    $$('#sizeOptions button', detail).forEach(button => button.addEventListener('click', () => {
+      selectedSize = button.dataset.size;
+      updateOptions();
+    }));
+    const variant = selectedVariant();
+    $('#addButton', detail).disabled = !variant;
+    $('#addPrice', detail).textContent = variant ? money(variant.price * quantity) : 'Unavailable';
+    $('#detailPrice', detail).textContent = variant ? money(variant.price) : `From ${money(product.minPrice)}`;
+    const variantImage = variant ? imageFor(product, variant.id) : '';
+    if (variantImage) $('#mainProductImage', detail).src = variantImage;
+  }
+
+  $$('.gallery-thumbs button', detail).forEach(button => button.addEventListener('click', () => {
+    $('#mainProductImage', detail).src = button.dataset.image;
+    $$('.gallery-thumbs button', detail).forEach(item => item.classList.toggle('active', item === button));
+  }));
+  $('#qtyMinus', detail).addEventListener('click', () => { quantity = Math.max(1, quantity - 1); $('#qtyValue', detail).textContent = quantity; updateOptions(); });
+  $('#qtyPlus', detail).addEventListener('click', () => { quantity = Math.min(10, quantity + 1); $('#qtyValue', detail).textContent = quantity; updateOptions(); });
+  $('#addButton', detail).addEventListener('click', () => {
+    const variant = selectedVariant();
+    if (!variant) return;
+    addToCart(product, variant, quantity);
+    dialog.close();
+    openBag();
+  });
+  updateOptions();
+  dialog.showModal();
+}
+
+function addToCart(product, variant, quantity) {
+  const key = `${product.id}:${variant.id}`;
+  const existing = state.cart.find(item => item.key === key);
+  if (existing) existing.quantity = Math.min(10, existing.quantity + quantity);
+  else state.cart.push({ key, productId: product.id, variantId: variant.id, title: product.title, variantTitle: variant.title, price: variant.price, image: imageFor(product, variant.id), quantity });
+  saveCart();
+}
 
 function saveCart() {
   localStorage.setItem('wildSageCart', JSON.stringify(state.cart));
   renderCart();
 }
 
-function cartCount() {
-  return state.cart.reduce((sum, x) => sum + Number(x.quantity || 1), 0);
-}
-
-function productImage(p) {
-  return p?.images?.find(i => i.position === 'front')?.src || p?.images?.[0]?.src || '';
-}
-
-function productImages(p) {
-  return [...new Set((p?.images || []).map(i => i?.src).filter(Boolean))].slice(0, 8);
-}
-
-function availableVariants(p) {
-  return (p?.variants || []).filter(v => v.is_available !== false && v.is_enabled !== false);
-}
-
-function tagsText(p) {
-  return (p.tags || []).join(' ').toLowerCase();
-}
-
-function categoryMatch(p, filter) {
-  if (filter === 'all') return true;
-  const haystack = `${p.title || ''} ${tagsText(p)}`.toLowerCase();
-  if (filter === 'crops') return /crop|cropped/.test(haystack);
-  if (filter === 'tanks') return /tank/.test(haystack);
-  if (filter === 'tees') return /\btee\b|t-shirt|shirt/.test(haystack);
-  if (filter === 'hoodies') return /hoodie|sweatshirt/.test(haystack);
-  if (filter === 'fall') return /fall|autumn|halloween|horror/.test(haystack);
-  return haystack.includes(filter);
-}
-
-async function loadProducts() {
-  const status = $('#statusCard');
-  try {
-    const res = await fetch('/api/products', { headers: { Accept: 'application/json' } });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data?.detail || data?.error || 'Could not load catalog');
-
-    state.products = Array.isArray(data.products) ? data.products : [];
-    state.filtered = state.products.slice();
-
-    if (!state.products.length) {
-      status.textContent = 'Your Printify connection is live, but there are no visible products in this shop yet.';
-      return;
-    }
-
-    status.hidden = true;
-    renderProducts();
-  } catch (err) {
-    console.error(err);
-    status.hidden = false;
-    status.innerHTML = `<strong>Could not load catalog.</strong><br><small>${escapeHtml(String(err.message || err))}</small>`;
-  }
-}
-
-function renderProducts() {
-  const grid = $('#productGrid');
-  grid.innerHTML = '';
-
-  if (!state.filtered.length) {
-    grid.innerHTML = `<div class="status-card">No pieces match this collection yet.</div>`;
-    return;
-  }
-
-  state.filtered.forEach(p => {
-    const card = document.createElement('article');
-    card.className = 'product-card';
-    const img = productImage(p);
-    card.innerHTML = `
-      <div class="product-image-wrap">
-        ${img ? `<img class="product-image" src="${escapeAttr(img)}" alt="${escapeAttr(p.title)}" loading="lazy">` : ''}
-        <span class="product-badge">${escapeHtml((p.tags || [])[0] || 'Wild Sage')}</span>
-      </div>
-      <div class="product-info">
-        <h3 class="product-title">${escapeHtml(p.title)}</h3>
-        <p class="product-price">From ${money(p.minPrice)}</p>
-        <div class="variant-dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-        <div class="card-actions">
-          <button class="details" type="button">Details</button>
-          <button class="quick-add" type="button">Quick add</button>
-        </div>
-      </div>`;
-    $('.details', card).addEventListener('click', () => openProduct(p));
-    $('.product-image-wrap', card).addEventListener('click', () => openProduct(p));
-    $('.quick-add', card).addEventListener('click', () => quickAdd(p));
-    grid.appendChild(card);
-  });
-}
-
-function quickAdd(p) {
-  const variants = availableVariants(p);
-  // Require an explicit choice whenever the product has multiple variants.
-  if (variants.length !== 1) return openProduct(p);
-  addToCart(p, variants[0], 1);
-  openBag();
-}
-
-function openProduct(p) {
-  const dialog = $('#productDialog');
-  const liveVariants = availableVariants(p);
-  const images = productImages(p);
-  const mainImage = images[0] || productImage(p);
-
-  const variants = liveVariants.map(v =>
-    `<option value="${escapeAttr(String(v.id))}">${escapeHtml(v.title)} — ${money(v.price)}</option>`
-  ).join('');
-
-  const thumbnails = images.length > 1 ? `
-    <div class="product-thumbs">
-      ${images.map((src, i) => `
-        <button class="product-thumb ${i === 0 ? 'active' : ''}" type="button" data-src="${escapeAttr(src)}" aria-label="View product image ${i + 1}">
-          <img src="${escapeAttr(src)}" alt="">
-        </button>`).join('')}
-    </div>` : '';
-
-  $('#productDialogContent').innerHTML = `
-    <div class="product-dialog-grid">
-      <div class="product-gallery">
-        ${mainImage ? `<img id="dialogMainImage" src="${escapeAttr(mainImage)}" alt="${escapeAttr(p.title)}">` : ''}
-        ${thumbnails}
-      </div>
-      <div class="product-dialog-copy">
-        <p class="eyebrow">${escapeHtml((p.tags || []).slice(0,2).join(' ✦ ') || 'WILD SAGE')}</p>
-        <h2>${escapeHtml(p.title)}</h2>
-        <p class="price">From ${money(p.minPrice)}</p>
-        <div class="product-description">${p.description || ''}</div>
-
-        ${liveVariants.length ? `
-          <label for="variantSelect">Size / color</label>
-          <select id="variantSelect">${variants}</select>
-
-          <label for="quantitySelect">Quantity</label>
-          <select id="quantitySelect">
-            <option value="1">1</option><option value="2">2</option>
-            <option value="3">3</option><option value="4">4</option>
-          </select>
-
-          <button id="dialogAdd">Add to bag</button>
-          <p class="availability-note">Available Printify options are shown when availability data is provided.</p>
-        ` : `<p class="sold-out">This piece is currently unavailable.</p>`}
-      </div>
-    </div>`;
-
-  $$('.product-thumb', $('#productDialogContent')).forEach(btn => {
-    btn.addEventListener('click', () => {
-      const main = $('#dialogMainImage');
-      if (main) main.src = btn.dataset.src;
-      $$('.product-thumb', $('#productDialogContent')).forEach(x => x.classList.remove('active'));
-      btn.classList.add('active');
-    });
-  });
-
-  if (liveVariants.length) {
-    const select = $('#variantSelect');
-    const price = $('.price', $('#productDialogContent'));
-
-    const updatePrice = () => {
-      const variant = liveVariants.find(v => String(v.id) === String(select.value));
-      if (variant) price.textContent = money(variant.price);
-    };
-
-    select.addEventListener('change', updatePrice);
-    updatePrice();
-
-    $('#dialogAdd').addEventListener('click', () => {
-      const variant = liveVariants.find(v => String(v.id) === String(select.value));
-      const quantity = Math.max(1, Number($('#quantitySelect').value || 1));
-      addToCart(p, variant, quantity);
-      dialog.close();
-      openBag();
-    });
-  }
-
-  dialog.showModal();
-}
-function addToCart(product, variant, quantity = 1) {
-  if (!variant) return;
-  const key = `${product.id}:${variant.id}`;
-  const existing = state.cart.find(x => x.key === key);
-  if (existing) existing.quantity += quantity;
-  else state.cart.push({
-    key,
-    productId: product.id,
-    variantId: variant.id,
-    title: product.title,
-    variantTitle: variant.title,
-    price: variant.price,
-    image: productImage(product),
-    quantity
-  });
-  saveCart();
-}
-
 function renderCart() {
-  $('#bagCount').textContent = cartCount();
+  $('#bagCount').textContent = state.cart.reduce((total, item) => total + Number(item.quantity || 1), 0);
   const holder = $('#bagItems');
-  holder.innerHTML = '';
-
-  if (!state.cart.length) {
-    holder.innerHTML = `<p style="color:#aaa397">Your bag is waiting for a little chaos.</p>`;
-  }
-
+  holder.replaceChildren();
+  if (!state.cart.length) holder.innerHTML = '<div class="bag-empty"><span>☾</span><h3>Your bag is waiting.</h3><p>Add something that feels like you.</p></div>';
   state.cart.forEach(item => {
-    const row = document.createElement('div');
+    const row = document.createElement('article');
     row.className = 'bag-item';
-    row.innerHTML = `
-      ${item.image ? `<img src="${escapeAttr(item.image)}" alt="">` : '<div></div>'}
-      <div>
-        <h4>${escapeHtml(item.title)}</h4>
-        <p>${escapeHtml(item.variantTitle || '')}</p>
-        <p>${money(item.price)} × ${item.quantity}</p>
-      </div>
-      <button class="bag-remove" aria-label="Remove item">×</button>`;
-    $('.bag-remove', row).addEventListener('click', () => {
-      state.cart = state.cart.filter(x => x.key !== item.key);
-      saveCart();
-    });
+    row.innerHTML = `<img src="${escapeHtml(item.image)}" alt=""><div><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.variantTitle)}</p><div class="bag-quantity"><button type="button" data-action="minus">−</button><span>${item.quantity}</span><button type="button" data-action="plus">+</button></div></div><div class="bag-price"><strong>${money(item.price * item.quantity)}</strong><button type="button" data-action="remove">Remove</button></div>`;
+    $('[data-action="minus"]', row).addEventListener('click', () => { item.quantity -= 1; if (item.quantity < 1) state.cart = state.cart.filter(entry => entry.key !== item.key); saveCart(); });
+    $('[data-action="plus"]', row).addEventListener('click', () => { item.quantity = Math.min(10, item.quantity + 1); saveCart(); });
+    $('[data-action="remove"]', row).addEventListener('click', () => { state.cart = state.cart.filter(entry => entry.key !== item.key); saveCart(); });
     holder.appendChild(row);
   });
-
-  const subtotal = state.cart.reduce((sum, x) => sum + Number(x.price || 0) * Number(x.quantity || 1), 0);
-  $('#bagSubtotal').textContent = money(subtotal);
+  $('#bagSubtotal').textContent = money(state.cart.reduce((total, item) => total + Number(item.price) * Number(item.quantity), 0));
+  $('#checkoutButton').disabled = !state.cart.length;
 }
 
 function openBag() {
   $('#bagDrawer').classList.add('open');
   $('#bagDrawer').setAttribute('aria-hidden', 'false');
-  $('#drawerBackdrop').hidden = false;
+  $('#overlay').hidden = false;
+  document.body.classList.add('locked');
 }
 
 function closeBag() {
   $('#bagDrawer').classList.remove('open');
   $('#bagDrawer').setAttribute('aria-hidden', 'true');
-  $('#drawerBackdrop').hidden = true;
+  $('#overlay').hidden = true;
+  document.body.classList.remove('locked');
 }
 
-function escapeHtml(value='') {
-  return String(value).replace(/[&<>"']/g, ch => ({
-    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;'
-  }[ch]));
-}
-function escapeAttr(value='') { return escapeHtml(value); }
-
-$$('.category').forEach(btn => {
-  btn.addEventListener('click', () => {
-    $$('.category').forEach(x => x.classList.remove('active'));
-    btn.classList.add('active');
-    const filter = btn.dataset.filter;
-    state.filtered = state.products.filter(p => categoryMatch(p, filter));
-    renderProducts();
-    $('#drop').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-});
-
-$('#showAllBtn').addEventListener('click', () => {
-  state.filtered = state.products.slice();
-  $$('.category').forEach(x => x.classList.toggle('active', x.dataset.filter === 'all'));
-  renderProducts();
-});
-
-$('#bagBtn').addEventListener('click', openBag);
-$('#closeBag').addEventListener('click', closeBag);
-$('#drawerBackdrop').addEventListener('click', closeBag);
-$('#closeProduct').addEventListener('click', () => $('#productDialog').close());
-
-$('.menu-toggle').addEventListener('click', e => {
-  const open = $('.nav').classList.toggle('open');
-  e.currentTarget.setAttribute('aria-expanded', String(open));
-});
-
-$('#newsletterForm').addEventListener('submit', e => {
-  e.preventDefault();
-  $('#newsletterMessage').textContent = 'You’re on the list ♡';
-  e.currentTarget.reset();
-});
-
-$('#checkoutBtn').addEventListener('click', async () => {
+async function checkout() {
   const message = $('#checkoutMessage');
-  const button = $('#checkoutBtn');
-
-  if (!state.cart.length) {
-    message.textContent = 'Your bag is empty.';
-    return;
-  }
-
+  const button = $('#checkoutButton');
+  if (!state.cart.length) return;
   button.disabled = true;
   button.textContent = 'Opening secure checkout…';
   message.textContent = '';
-
   try {
-    const res = await fetch('/api/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({
-        items: state.cart.map(item => ({
-          productId: item.productId,
-          variantId: item.variantId,
-          quantity: item.quantity
-        }))
-      })
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data?.error || 'Unable to start checkout.');
-    if (!data?.url) throw new Error('Stripe did not return a checkout link.');
-
-    window.location.href = data.url;
-  } catch (err) {
-    console.error(err);
-    message.textContent = err.message || 'Unable to open checkout.';
+    const response = await fetch('/api/checkout', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ items:state.cart.map(item => ({ productId:item.productId, variantId:item.variantId, quantity:item.quantity })) }) });
+    const payload = await response.json();
+    if (!response.ok || !payload.url) throw new Error(payload.error || 'Checkout could not be opened.');
+    window.location.assign(payload.url);
+  } catch (error) {
+    message.textContent = error.message;
     button.disabled = false;
-    button.textContent = 'Checkout';
+    button.textContent = 'Secure checkout';
   }
-});
-
-const checkoutParams = new URLSearchParams(window.location.search);
-if (checkoutParams.get('checkout') === 'success') {
-  state.cart = [];
-  saveCart();
-  setTimeout(() => {
-    alert('Payment received. Thank you for shopping Wild Sage ♡');
-    history.replaceState({}, '', window.location.pathname);
-  }, 250);
-} else if (checkoutParams.get('checkout') === 'cancelled') {
-  setTimeout(() => {
-    alert('Checkout was cancelled. Your bag is still saved.');
-    history.replaceState({}, '', window.location.pathname);
-  }, 250);
 }
+
+function applyFilter(filter) {
+  state.filter = filter;
+  $$('#filterRow button').forEach(button => button.classList.toggle('active', button.dataset.filter === filter));
+  renderCatalog();
+  $('#shop').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+$$('[data-filter]').forEach(button => button.addEventListener('click', () => applyFilter(button.dataset.filter)));
+$('#searchInput').addEventListener('input', event => { state.query = event.target.value.trim().toLowerCase(); renderCatalog(); });
+$('#sortSelect').addEventListener('change', event => { state.sort = event.target.value; renderCatalog(); });
+$('#searchButton').addEventListener('click', () => { $('#shop').scrollIntoView({ behavior:'smooth' }); setTimeout(() => $('#searchInput').focus(), 500); });
+$('#bagButton').addEventListener('click', openBag);
+$('#closeBag').addEventListener('click', closeBag);
+$('#overlay').addEventListener('click', closeBag);
+$('#closeProduct').addEventListener('click', () => $('#productDialog').close());
+$('#checkoutButton').addEventListener('click', checkout);
+$('#menuButton').addEventListener('click', () => { const open = $('#mainNav').classList.toggle('open'); $('#menuButton').setAttribute('aria-expanded', String(open)); });
+$$('#mainNav a').forEach(link => link.addEventListener('click', () => { $('#mainNav').classList.remove('open'); $('#menuButton').setAttribute('aria-expanded', 'false'); }));
+$('#newsletterForm').addEventListener('submit', event => { event.preventDefault(); $('#newsletterMessage').textContent = 'You’re on the list. Stay wild ♡'; event.target.reset(); });
+$('#productDialog').addEventListener('click', event => { if (event.target === $('#productDialog')) $('#productDialog').close(); });
+
+const checkoutState = new URLSearchParams(location.search).get('checkout');
+if (checkoutState === 'success') { state.cart = []; saveCart(); setTimeout(() => alert('Thank you — your Wild Sage order is in. ♡'), 250); }
 
 renderCart();
 loadProducts();
