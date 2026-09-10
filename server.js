@@ -23,7 +23,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 const money = cents => Number(cents || 0) / 100;
-const titleCase = s => String(s || '').replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
 async function printify(pathname, options = {}) {
   const token = process.env.PRINTIFY_API_TOKEN;
@@ -91,6 +90,72 @@ function normalizeProduct(p) {
   };
 }
 
+function stripeShippingAddress(session) {
+  const shipping = session?.collected_information?.shipping_details || session?.shipping_details;
+  const details = shipping || session?.customer_details;
+  const address = details?.address;
+  if (!address) throw new Error('Stripe checkout did not include a shipping address.');
+  return {
+    first_name: String(details?.name || 'Customer').trim().split(/\s+/)[0] || 'Customer',
+    last_name: String(details?.name || '').trim().split(/\s+/).slice(1).join(' ') || '-',
+    email: session?.customer_details?.email || '',
+    phone: session?.customer_details?.phone || '',
+    country: address.country || 'US',
+    region: address.state || '',
+    address1: address.line1 || '',
+    address2: address.line2 || '',
+    city: address.city || '',
+    zip: address.postal_code || ''
+  };
+}
+
+async function findPrintifyOrderByExternalId(shopId, externalId) {
+  const data = await printify(`/shops/${shopId}/orders.json?limit=100`);
+  const orders = Array.isArray(data) ? data : (data?.data || []);
+  return orders.find(order => String(order.external_id || '') === String(externalId)) || null;
+}
+
+async function fulfillPaidStripeSession(session) {
+  if (!session || session.payment_status !== 'paid') {
+    throw new Error('Stripe session is not paid; Printify fulfillment blocked.');
+  }
+
+  const rawItems = session.metadata?.printify_items;
+  if (!rawItems) throw new Error('Stripe session is missing Printify item metadata.');
+
+  let items;
+  try { items = JSON.parse(rawItems); } catch { throw new Error('Stripe session contains invalid Printify item metadata.'); }
+  if (!Array.isArray(items) || !items.length) throw new Error('Stripe session contains no fulfillment items.');
+
+  const shopId = await getShopId();
+  const externalId = session.id;
+  let order = await findPrintifyOrderByExternalId(shopId, externalId);
+
+  if (!order) {
+    const payload = {
+      external_id: externalId,
+      label: `Wild Sage ${externalId.slice(-8)}`,
+      line_items: items.map(x => ({
+        product_id: x.productId,
+        variant_id: Number(x.variantId),
+        quantity: Math.max(1, Number(x.quantity || 1))
+      })),
+      shipping_method: 1,
+      send_shipping_notification: true,
+      address_to: stripeShippingAddress(session)
+    };
+    order = await printify(`/shops/${shopId}/orders.json`, { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+  const status = String(order?.status || '').toLowerCase();
+  const alreadySubmitted = ['in-production', 'in_production', 'production', 'fulfilled', 'shipped', 'canceled', 'cancelled'].includes(status);
+  if (!alreadySubmitted && order?.id) {
+    await printify(`/shops/${shopId}/orders/${encodeURIComponent(order.id)}/send_to_production.json`, { method: 'POST' });
+  }
+
+  return order;
+}
+
 app.get('/api/health', (_req, res) => res.json({ ok: true, store: process.env.STORE_NAME || 'Wild Sage Apparel' }));
 
 app.get('/api/setup-status', async (_req, res) => {
@@ -101,7 +166,13 @@ app.get('/api/setup-status', async (_req, res) => {
     const shops = await printify('/shops.json');
     const list = Array.isArray(shops) ? shops : (shops?.data || []);
     const shop = list.find(s => String(s.id) === String(shopId)) || list[0];
-    res.json({ printifyConnected: true, shopId: String(shopId), shopTitle: shop?.title || shop?.name || 'Printify Shop' });
+    res.json({
+      printifyConnected: true,
+      shopId: String(shopId),
+      shopTitle: shop?.title || shop?.name || 'Printify Shop',
+      stripeConnected: Boolean(stripe),
+      stripeWebhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET)
+    });
   } catch (err) {
     res.status(502).json({ printifyConnected: false, reason: 'printify_error', detail: err.detail || err.message });
   }
@@ -169,6 +240,50 @@ app.post('/api/checkout', async (req, res) => {
   }
 });
 
+app.post('/api/webhooks/stripe', async (req, res) => {
+  if (!stripe) return res.status(503).send('Stripe is not configured.');
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) return res.status(503).send('Stripe webhook secret is not configured.');
+
+  const signature = req.headers['stripe-signature'];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.rawBody, signature, webhookSecret);
+  } catch (err) {
+    console.error('Stripe webhook signature verification failed:', err.message);
+    return res.status(400).send('Invalid Stripe webhook signature.');
+  }
+
+  if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
+    try {
+      const session = event.data.object;
+      if (session.payment_status === 'paid') {
+        await fulfillPaidStripeSession(session);
+      }
+    } catch (err) {
+      console.error('Paid Stripe checkout could not be fulfilled:', err.detail || err);
+      return res.status(500).send('Fulfillment failed; Stripe may retry this webhook.');
+    }
+  }
+
+  res.sendStatus(200);
+});
+
+app.get('/api/checkout-status/:sessionId', async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'Stripe is not configured.' });
+  try {
+    const session = await stripe.checkout.sessions.retrieve(req.params.sessionId);
+    res.json({
+      sessionId: session.id,
+      paymentStatus: session.payment_status,
+      status: session.status,
+      fulfilled: session.payment_status === 'paid'
+    });
+  } catch (err) {
+    res.status(400).json({ error: 'Unable to verify checkout status.' });
+  }
+});
+
 app.post('/api/shipping', async (req, res) => {
   const tokenReady = Boolean(process.env.PRINTIFY_API_TOKEN && process.env.PRINTIFY_API_TOKEN !== 'replace_me');
   if (!tokenReady) return res.status(503).json({ error: 'Connect Printify to calculate live shipping.' });
@@ -185,24 +300,17 @@ app.post('/api/shipping', async (req, res) => {
 });
 
 app.post('/api/orders', async (req, res) => {
-  const { items, address, payment } = req.body || {};
-  if (!payment?.verified || !payment?.reference) return res.status(402).json({ error: 'Verified payment is required before fulfillment.' });
-  if (!Array.isArray(items) || !items.length || !address) return res.status(400).json({ error: 'Cart items and shipping address are required.' });
+  if (!stripe) return res.status(503).json({ error: 'Stripe is not configured.' });
+  const sessionId = req.body?.sessionId;
+  if (!sessionId) return res.status(400).json({ error: 'A Stripe checkout session ID is required.' });
   try {
-    const shopId = await getShopId();
-    const externalId = payment.reference || crypto.randomUUID();
-    const payload = {
-      external_id: externalId,
-      label: `Wild Sage ${externalId.slice(-8)}`,
-      line_items: items.map(x => ({ product_id: x.productId, variant_id: Number(x.variantId), quantity: Math.max(1, Number(x.quantity || 1)) })),
-      shipping_method: Number(req.body.shippingMethod || 1),
-      send_shipping_notification: true,
-      address_to: address
-    };
-    const order = await printify(`/shops/${shopId}/orders.json`, { method: 'POST', body: JSON.stringify(payload) });
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (session.payment_status !== 'paid') return res.status(402).json({ error: 'Stripe has not confirmed payment. Fulfillment blocked.' });
+    const order = await fulfillPaidStripeSession(session);
     res.status(201).json(order);
   } catch (err) {
-    res.status(err.status || 502).json({ error: 'Order creation failed', detail: err.detail || err.message });
+    console.error('Verified order fulfillment failed:', err.detail || err);
+    res.status(err.status || 502).json({ error: 'Order fulfillment failed', detail: err.detail || err.message });
   }
 });
 
