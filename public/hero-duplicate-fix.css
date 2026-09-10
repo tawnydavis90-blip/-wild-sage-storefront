@@ -1,26 +1,17 @@
-/* The hero artwork already contains faint decorative typography.
-   Keep only the live, accessible storefront copy visually prominent. */
-.hero-copy h1{
-  text-shadow:none!important;
-  -webkit-text-stroke:0!important;
-  filter:none!important;
+/* Wild Sage approved hero artwork. The image already contains the campaign typography,
+   so the old HTML copy is hidden to prevent any doubled/shadow text. */
+.hero{
+  position:relative!important;
+  background-image:url('/api/media/hero/current')!important;
+  background-size:cover!important;
+  background-position:center center!important;
+  background-repeat:no-repeat!important;
+  min-height:clamp(430px,52vw,760px)!important;
 }
-.hero-copy h1::before,.hero-copy h1::after,
-.hero-copy::before,.hero-copy::after,
-.hero-kicker::before,.hero-kicker::after,
-.primary-cta::before,.primary-cta::after{
-  content:none!important;
-  display:none!important;
+.hero-overlay,.hero-copy,.hero-note{display:none!important}
+.hero::before,.hero::after{content:none!important;display:none!important}
+/* Keep the hero clickable as a shop entry without placing another visible button over the artwork. */
+.hero{cursor:pointer}
+@media(max-width:760px){
+  .hero{background-size:cover!important;background-position:center center!important;min-height:58vw!important}
 }
-/* Add a stronger clean dark field behind the live copy to mask the typography baked into the hero image. */
-.hero::after{
-  content:"";
-  position:absolute;
-  inset:0 auto 0 0;
-  width:min(58%,900px);
-  background:linear-gradient(90deg,rgba(5,6,4,.96) 0%,rgba(5,6,4,.82) 45%,rgba(5,6,4,.38) 78%,transparent 100%);
-  pointer-events:none;
-  z-index:0;
-}
-.hero-copy,.hero-note{position:relative;z-index:2}
-@media(max-width:760px){.hero::after{width:100%;background:linear-gradient(90deg,rgba(5,6,4,.94),rgba(5,6,4,.55) 72%,rgba(5,6,4,.25))}}
