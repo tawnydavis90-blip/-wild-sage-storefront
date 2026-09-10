@@ -18,8 +18,8 @@ SET domain='https://sole-rebel-polls.tawnydavis90.chatgpt.site'
 WHERE slug='sole-rebel-polls';
 
 UPDATE sites
-SET domain='https://tawnys-boyfriend-application.tawnydavis90.chatgpt.site'
+SET domain='https://tawnys-boyfriend-application.tawnydavis90.chatgpt.site',
+    dashboard_url='https://tawnys-boyfriend-application.tawnydavis90.chatgpt.site/dashboard'
 WHERE slug='boyfriend-application';
 
--- Dashboard URLs for external ChatGPT-hosted sites remain NULL until an exact
--- admin/dashboard route is confirmed. The HQ UI will show them as unavailable.
+-- Dashboard URLs for external sites remain NULL until an exact route is confirmed.
