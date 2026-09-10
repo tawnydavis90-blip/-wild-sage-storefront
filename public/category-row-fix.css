@@ -1,0 +1,38 @@
+/* Keep desktop collection navigation in one clean boutique row. */
+.category-strip{
+  display:flex!important;
+  flex-wrap:nowrap!important;
+  align-items:stretch!important;
+  justify-content:center!important;
+  gap:clamp(5px,.65vw,10px)!important;
+  padding-left:clamp(10px,2vw,28px)!important;
+  padding-right:clamp(10px,2vw,28px)!important;
+}
+.category-strip .category{
+  flex:1 1 0!important;
+  min-width:0!important;
+  width:auto!important;
+  padding:14px clamp(6px,.8vw,13px)!important;
+  white-space:nowrap!important;
+  font-size:clamp(.62rem,.72vw,.78rem)!important;
+  letter-spacing:.04em!important;
+}
+.category-strip .category span{
+  margin-right:clamp(2px,.3vw,5px)!important;
+}
+/* On smaller screens, preserve readable button sizes with horizontal swipe instead of wrapping. */
+@media(max-width:900px){
+  .category-strip{
+    justify-content:flex-start!important;
+    overflow-x:auto!important;
+    scrollbar-width:none!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+  .category-strip::-webkit-scrollbar{display:none!important}
+  .category-strip .category{
+    flex:0 0 auto!important;
+    min-width:max-content!important;
+    padding:13px 15px!important;
+    font-size:.7rem!important;
+  }
+}
