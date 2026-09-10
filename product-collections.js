@@ -19,6 +19,16 @@ async function ensureSchema(){
     collection_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  await client.query(`CREATE TABLE IF NOT EXISTS collection_settings (
+    collection_id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await client.query(`INSERT INTO collection_settings(collection_id,label,enabled,sort_order)
+    VALUES('pants','Pants',TRUE,5)
+    ON CONFLICT(collection_id) DO NOTHING`);
   schemaReady=true; return true;
 }
 function cookies(req){return Object.fromEntries(String(req.headers.cookie||'').split(';').map(v=>v.trim()).filter(Boolean).map(part=>{const i=part.indexOf('=');return[decodeURIComponent(part.slice(0,i)),decodeURIComponent(part.slice(i+1))]}));}
