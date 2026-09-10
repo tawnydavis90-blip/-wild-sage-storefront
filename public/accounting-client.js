@@ -26,7 +26,7 @@
     if(s.hasMore) warnings.push('Stripe returned more than 100 balance transactions in this period, so Stripe totals cover the latest 100 returned transactions.');
     if(p.hasMoreStripeSessions) warnings.push('There are more than 100 Stripe checkout sessions in this period; Printify reconciliation is limited to the latest 100 returned sessions.');
     if(!p.configured) warnings.push('Printify cost reconciliation is not available because Printify is not configured on this service.');
-    if(p.configured&&p.unmatchedPaidOrders>0) warnings.push(`${p.unmatchedPaidOrders} paid Stripe order${p.unmatchedPaidOrders===1?' is':'s are'} not matched to a Printify fulfillment order yet. True profit is understated until those costs are matched.`);
+    if(p.configured&&p.unmatchedPaidOrders>0) warnings.push(`${p.unmatchedPaidOrders} paid Stripe order${p.unmatchedPaidOrders===1?' is':'s are'} not matched to a Printify fulfillment order yet. Operating profit may be overstated until those fulfillment costs are matched.`);
     warning.hidden=!warnings.length;
     warning.textContent=warnings.join(' ');
     $('#taxReservePercent').value=Number(data.taxReservePercent||0);
