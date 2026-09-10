@@ -12,133 +12,21 @@
 </head>
 <body>
   <main class="admin-shell">
-    <section id="loginView" class="login-card">
-      <p class="eyebrow">WILD SAGE APPAREL</p>
-      <h1>Admin</h1>
-      <p class="muted">Your Wild Sage control room.</p>
-      <form id="loginForm">
-        <label for="adminPassword">Password</label>
-        <input id="adminPassword" type="password" autocomplete="current-password" required>
-        <button type="submit">Enter Dashboard</button>
-        <p id="loginMessage" class="message"></p>
-      </form>
-      <a class="back-store-button" href="/">← Back to Store</a>
-    </section>
-
+    <section id="loginView" class="login-card"><p class="eyebrow">WILD SAGE APPAREL</p><h1>Admin</h1><p class="muted">Your Wild Sage control room.</p><form id="loginForm"><label for="adminPassword">Password</label><input id="adminPassword" type="password" autocomplete="current-password" required><button type="submit">Enter Dashboard</button><p id="loginMessage" class="message"></p></form><a class="back-store-button" href="/">← Back to Store</a></section>
     <section id="dashboardView" hidden>
-      <header class="admin-header">
-        <div><p class="eyebrow">WILD SAGE APPAREL</p><h1>Store Dashboard</h1><p class="muted">Merchandising, orders, accounting, analytics, content, and settings.</p></div>
-        <div class="header-actions"><a href="/">← Back to Store</a><button id="logoutButton" type="button" class="ghost">Log Out</button></div>
-      </header>
-
+      <header class="admin-header"><div><p class="eyebrow">WILD SAGE APPAREL</p><h1>Store Dashboard</h1><p class="muted">Merchandising, orders, accounting, analytics, content, and settings.</p></div><div class="header-actions"><a href="/">← Back to Store</a><button id="logoutButton" type="button" class="ghost">Log Out</button></div></header>
       <div id="setupNotice" class="setup-notice" hidden></div>
-
-      <nav class="admin-tabs" aria-label="Admin sections">
-        <button class="admin-tab active" data-tab="overview">Overview</button>
-        <button class="admin-tab" data-tab="products">Products</button>
-        <button class="admin-tab" data-tab="orders">Orders</button>
-        <button class="admin-tab" data-tab="accounting">Accounting</button>
-        <button class="admin-tab" data-tab="analytics">Analytics</button>
-        <button class="admin-tab" data-tab="homepage">Homepage</button>
-        <button class="admin-tab" data-tab="collections">Collections</button>
-        <button class="admin-tab" data-tab="settings">Settings</button>
-      </nav>
-
-      <section class="admin-panel active" data-panel="overview">
-        <div class="panel-heading"><div><p class="eyebrow">AT A GLANCE</p><h2>Overview</h2></div><button id="refreshOverview" class="ghost">Refresh</button></div>
-        <div id="overviewCards" class="metric-grid"></div>
-        <div class="split-grid"><div class="admin-card"><h3>30-day activity</h3><div id="overviewActivity"></div></div><div class="admin-card"><h3>Store status</h3><div id="storeStatus"></div></div></div>
-      </section>
-
-      <section class="admin-panel" data-panel="products">
-        <div class="panel-heading"><div><p class="eyebrow">MERCHANDISING</p><h2>Products</h2></div></div>
-        <div class="toolbar"><input id="productSearch" type="search" placeholder="Search products"><span id="productCount" class="muted"></span></div>
-        <div id="productsGrid" class="products-grid"></div>
-      </section>
-
-      <section class="admin-panel" data-panel="orders">
-        <div class="panel-heading"><div><p class="eyebrow">STRIPE</p><h2>Orders</h2><p class="muted">Tap any order to view complete details.</p></div><button id="refreshOrders" class="ghost">Refresh</button></div>
-        <div id="ordersNotice" class="setup-notice" hidden></div><div id="ordersList" class="orders-list"></div>
-      </section>
-
-      <section class="admin-panel" data-panel="accounting">
-        <div class="panel-heading"><div><p class="eyebrow">MONEY</p><h2>Accounting</h2><p class="muted">Stripe activity, fees, expense tracking, and owner planning.</p></div><button id="exportAccounting" class="ghost">Export CSV</button></div>
-        <div class="accounting-toolbar">
-          <button class="accounting-period active" data-period="30d">30 days</button>
-          <button class="accounting-period" data-period="90d">90 days</button>
-          <button class="accounting-period" data-period="ytd">Year to date</button>
-        </div>
-        <p id="accountingMessage" class="message"></p>
-        <div id="accountingWarning" class="accounting-warning" hidden></div>
-        <div id="accountingCards" class="accounting-grid"></div>
-        <div class="accounting-layout">
-          <section class="accounting-section">
-            <h3>Business expenses</h3>
-            <form id="expenseForm" class="expense-form">
-              <label>Date<input id="expenseDate" type="date" required></label>
-              <label>Category<select id="expenseCategory"><option>Advertising & Marketing</option><option>Software & Subscriptions</option><option>Supplies</option><option>Samples</option><option>Shipping</option><option>Professional Services</option><option>Travel</option><option>Bank & Payment Fees</option><option>Other</option></select></label>
-              <label>Vendor<input id="expenseVendor" placeholder="Vendor or merchant"></label>
-              <label>Amount<input id="expenseAmount" type="number" min="0" step="0.01" placeholder="0.00" required></label>
-              <label class="full">Description<input id="expenseDescription" placeholder="What was this for?"></label>
-              <div class="expense-actions"><span id="expenseMessage" class="message"></span><button type="submit">Add Expense</button></div>
-            </form>
-            <div id="expenseList" class="expense-list"></div>
-          </section>
-          <section class="accounting-section">
-            <h3>Tax reserve</h3>
-            <p class="muted">Choose a percentage to set aside from gross sales after refunds. This is planning only, not a tax calculation.</p>
-            <div class="tax-setting"><label>Reserve percentage<input id="taxReservePercent" type="number" min="0" max="100" step="0.5"></label><button id="saveTaxReserve" type="button">Save</button></div>
-            <p id="taxMessage" class="message"></p>
-            <div class="accounting-footnote" id="accountingDisclaimer"></div>
-            <div class="accounting-footnote">Recommended next upgrades: actual Printify fulfillment-cost reconciliation, monthly P&amp;L statements, payout matching, sales-tax reporting, and year-end export packages for your accountant.</div>
-          </section>
-        </div>
-      </section>
-
-      <section class="admin-panel" data-panel="analytics">
-        <div class="panel-heading"><div><p class="eyebrow">STOREFRONT</p><h2>Analytics</h2></div><button id="refreshAnalytics" class="ghost">Refresh</button></div>
-        <div class="analytics-window"><button class="window-btn active" data-window="24h">24 hours</button><button class="window-btn" data-window="7d">7 days</button><button class="window-btn" data-window="30d">30 days</button><button class="window-btn" data-window="all">Lifetime</button></div>
-        <div id="analyticsCards" class="metric-grid"></div>
-        <div class="admin-card"><h3>Top viewed products · 30 days</h3><div id="topProducts"></div></div>
-      </section>
-
-      <section class="admin-panel" data-panel="homepage">
-        <div class="panel-heading"><div><p class="eyebrow">CONTENT</p><h2>Homepage</h2></div><button id="saveHomepage">Save Homepage</button></div>
-        <div class="form-grid">
-          <label>Announcement left<input id="announcementLeft"></label><label>Announcement right<input id="announcementRight"></label>
-          <label>Hero eyebrow<input id="heroEyebrow"></label><label>Hero title<textarea id="heroTitle" rows="3"></textarea></label>
-          <label class="full">Hero subheading<textarea id="heroKicker" rows="3"></textarea></label>
-          <label>About eyebrow<input id="aboutEyebrow"></label><label>About title<input id="aboutTitle"></label>
-          <label class="full">About text<textarea id="aboutText" rows="4"></textarea></label>
-          <label class="toggle-line"><input id="featuredEnabled" type="checkbox"> Show Featured section</label>
-          <label class="toggle-line"><input id="bestSellersEnabled" type="checkbox"> Show Best Sellers section</label>
-        </div><p id="homepageMessage" class="message"></p>
-      </section>
-
-      <section class="admin-panel" data-panel="collections">
-        <div class="panel-heading"><div><p class="eyebrow">SHOP NAVIGATION</p><h2>Collections</h2></div><button id="saveCollections">Save Collections</button></div>
-        <p class="muted">Rename, reorder, or hide the storefront filter buttons without changing Printify.</p>
-        <div id="collectionsList" class="collections-list"></div><p id="collectionsMessage" class="message"></p>
-      </section>
-
-      <section class="admin-panel" data-panel="settings">
-        <div class="panel-heading"><div><p class="eyebrow">STORE</p><h2>Settings</h2></div><button id="saveSettings">Save Settings</button></div>
-        <div class="form-grid"><label>Contact email<input id="contactEmail" type="email"></label><div class="admin-card compact"><strong>Business ID</strong><span id="businessId"></span></div><div class="admin-card compact"><strong>Parent company</strong><span id="parentCompanyId"></span></div><div class="admin-card compact"><strong>Database</strong><span id="databaseStatus"></span></div><div class="admin-card compact"><strong>Stripe</strong><span id="stripeStatus"></span></div></div>
-        <p id="settingsMessage" class="message"></p>
-      </section>
+      <nav class="admin-tabs" aria-label="Admin sections"><button class="admin-tab active" data-tab="overview">Overview</button><button class="admin-tab" data-tab="products">Products</button><button class="admin-tab" data-tab="orders">Orders</button><button class="admin-tab" data-tab="accounting">Accounting</button><button class="admin-tab" data-tab="analytics">Analytics</button><button class="admin-tab" data-tab="homepage">Homepage</button><button class="admin-tab" data-tab="collections">Collections</button><button class="admin-tab" data-tab="settings">Settings</button></nav>
+      <section class="admin-panel active" data-panel="overview"><div class="panel-heading"><div><p class="eyebrow">AT A GLANCE</p><h2>Overview</h2></div><button id="refreshOverview" class="ghost">Refresh</button></div><div id="overviewCards" class="metric-grid"></div><div class="split-grid"><div class="admin-card"><h3>30-day activity</h3><div id="overviewActivity"></div></div><div class="admin-card"><h3>Store status</h3><div id="storeStatus"></div></div></div></section>
+      <section class="admin-panel" data-panel="products"><div class="panel-heading"><div><p class="eyebrow">MERCHANDISING</p><h2>Products</h2></div></div><div class="toolbar"><input id="productSearch" type="search" placeholder="Search products"><span id="productCount" class="muted"></span></div><div id="productsGrid" class="products-grid"></div></section>
+      <section class="admin-panel" data-panel="orders"><div class="panel-heading"><div><p class="eyebrow">STRIPE + PRINTIFY</p><h2>Orders</h2><p class="muted">Search, filter, track fulfillment, and tap any order for complete details.</p></div><button id="refreshOrders" class="ghost">Refresh</button></div><div id="ordersNotice" class="setup-notice" hidden></div><div id="ordersList" class="orders-list"></div></section>
+      <section class="admin-panel" data-panel="accounting"><div class="panel-heading"><div><p class="eyebrow">MONEY</p><h2>Accounting</h2><p class="muted">Stripe activity, fees, expense tracking, and owner planning.</p></div><button id="exportAccounting" class="ghost">Export CSV</button></div><div class="accounting-toolbar"><button class="accounting-period active" data-period="30d">30 days</button><button class="accounting-period" data-period="90d">90 days</button><button class="accounting-period" data-period="ytd">Year to date</button></div><p id="accountingMessage" class="message"></p><div id="accountingWarning" class="accounting-warning" hidden></div><div id="accountingCards" class="accounting-grid"></div><div class="accounting-layout"><section class="accounting-section"><h3>Business expenses</h3><form id="expenseForm" class="expense-form"><label>Date<input id="expenseDate" type="date" required></label><label>Category<select id="expenseCategory"><option>Advertising & Marketing</option><option>Software & Subscriptions</option><option>Supplies</option><option>Samples</option><option>Shipping</option><option>Professional Services</option><option>Travel</option><option>Bank & Payment Fees</option><option>Other</option></select></label><label>Vendor<input id="expenseVendor" placeholder="Vendor or merchant"></label><label>Amount<input id="expenseAmount" type="number" min="0" step="0.01" placeholder="0.00" required></label><label class="full">Description<input id="expenseDescription" placeholder="What was this for?"></label><div class="expense-actions"><span id="expenseMessage" class="message"></span><button type="submit">Add Expense</button></div></form><div id="expenseList" class="expense-list"></div></section><section class="accounting-section"><h3>Tax reserve</h3><p class="muted">Choose a percentage to set aside from gross sales after refunds. This is planning only, not a tax calculation.</p><div class="tax-setting"><label>Reserve percentage<input id="taxReservePercent" type="number" min="0" max="100" step="0.5"></label><button id="saveTaxReserve" type="button">Save</button></div><p id="taxMessage" class="message"></p><div class="accounting-footnote" id="accountingDisclaimer"></div></section></div></section>
+      <section class="admin-panel" data-panel="analytics"><div class="panel-heading"><div><p class="eyebrow">STOREFRONT</p><h2>Analytics</h2></div><button id="refreshAnalytics" class="ghost">Refresh</button></div><div class="analytics-window"><button class="window-btn active" data-window="24h">24 hours</button><button class="window-btn" data-window="7d">7 days</button><button class="window-btn" data-window="30d">30 days</button><button class="window-btn" data-window="all">Lifetime</button></div><div id="analyticsCards" class="metric-grid"></div><div class="admin-card"><h3>Top viewed products · 30 days</h3><div id="topProducts"></div></div></section>
+      <section class="admin-panel" data-panel="homepage"><div class="panel-heading"><div><p class="eyebrow">CONTENT</p><h2>Homepage</h2></div><button id="saveHomepage">Save Homepage</button></div><div class="form-grid"><label>Announcement left<input id="announcementLeft"></label><label>Announcement right<input id="announcementRight"></label><label>Hero eyebrow<input id="heroEyebrow"></label><label>Hero title<textarea id="heroTitle" rows="3"></textarea></label><label class="full">Hero subheading<textarea id="heroKicker" rows="3"></textarea></label><label>About eyebrow<input id="aboutEyebrow"></label><label>About title<input id="aboutTitle"></label><label class="full">About text<textarea id="aboutText" rows="4"></textarea></label><label class="toggle-line"><input id="featuredEnabled" type="checkbox"> Show Featured section</label><label class="toggle-line"><input id="bestSellersEnabled" type="checkbox"> Show Best Sellers section</label></div><p id="homepageMessage" class="message"></p></section>
+      <section class="admin-panel" data-panel="collections"><div class="panel-heading"><div><p class="eyebrow">SHOP NAVIGATION</p><h2>Collections</h2></div><button id="saveCollections">Save Collections</button></div><p class="muted">Rename, reorder, or hide the storefront filter buttons without changing Printify.</p><div id="collectionsList" class="collections-list"></div><p id="collectionsMessage" class="message"></p></section>
+      <section class="admin-panel" data-panel="settings"><div class="panel-heading"><div><p class="eyebrow">STORE</p><h2>Settings</h2></div><button id="saveSettings">Save Settings</button></div><div class="form-grid"><label>Contact email<input id="contactEmail" type="email"></label><div class="admin-card compact"><strong>Business ID</strong><span id="businessId"></span></div><div class="admin-card compact"><strong>Parent company</strong><span id="parentCompanyId"></span></div><div class="admin-card compact"><strong>Database</strong><span id="databaseStatus"></span></div><div class="admin-card compact"><strong>Stripe</strong><span id="stripeStatus"></span></div></div><p id="settingsMessage" class="message"></p></section>
     </section>
   </main>
-
-  <div id="orderDetailBackdrop" class="order-detail-backdrop" hidden></div>
-  <aside id="orderDetailDrawer" class="order-detail-drawer" aria-hidden="true" aria-label="Order details">
-    <button id="closeOrderDetail" class="order-detail-close" type="button" aria-label="Close order details">×</button>
-    <div id="orderDetailContent"></div>
-  </aside>
-
-  <script src="/admin-client.js" defer></script>
-  <script src="/product-collections-admin.js" defer></script>
-  <script src="/media-upload-admin.js" defer></script>
-  <script src="/order-details-client.js" defer></script>
-  <script src="/accounting-client.js" defer></script>
-</body>
-</html>
+  <div id="orderDetailBackdrop" class="order-detail-backdrop" hidden></div><aside id="orderDetailDrawer" class="order-detail-drawer" aria-hidden="true" aria-label="Order details"><button id="closeOrderDetail" class="order-detail-close" type="button" aria-label="Close order details">×</button><div id="orderDetailContent"></div></aside>
+  <script src="/admin-client.js" defer></script><script src="/product-collections-admin.js" defer></script><script src="/media-upload-admin.js" defer></script><script src="/order-details-client.js" defer></script><script src="/order-management-admin.js" defer></script><script src="/accounting-client.js" defer></script>
+</body></html>
