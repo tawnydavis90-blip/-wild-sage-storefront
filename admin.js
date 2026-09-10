@@ -4,6 +4,9 @@ import pg from 'pg';
 const { Pool } = pg;
 const COOKIE_NAME = 'wild_sage_admin';
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const BUSINESS_ID = process.env.BUSINESS_ID || 'wild-sage-apparel';
+const BUSINESS_NAME = process.env.BUSINESS_NAME || 'Wild Sage Apparel';
+const PARENT_COMPANY_ID = process.env.PARENT_COMPANY_ID || 'sage-and-ember-holdings';
 
 let pool = null;
 let schemaReady = false;
@@ -74,6 +77,16 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function requireParentDashboard(req, res, next) {
+  const expected = String(process.env.PARENT_DASHBOARD_API_KEY || '');
+  if (!expected) return res.status(503).json({ error: 'Parent dashboard integration is not configured.' });
+  const auth = String(req.headers.authorization || '');
+  const supplied = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  const ok = supplied.length === expected.length && supplied.length > 0 && crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected));
+  if (!ok) return res.status(401).json({ error: 'Invalid parent dashboard credentials.' });
+  next();
+}
+
 function sanitizeMockups(value) {
   if (!Array.isArray(value)) return [];
   return value.map(v => String(v || '').trim()).filter(v => /^https?:\/\//i.test(v)).slice(0, 6);
@@ -91,6 +104,29 @@ async function readOverrides() {
       mockups: Array.isArray(r.mockup_urls) ? r.mockup_urls : [],
       updatedAt: r.updated_at
     }))
+  };
+}
+
+async function parentSummary() {
+  const data = await readOverrides();
+  const items = data.items || [];
+  return {
+    business: {
+      id: BUSINESS_ID,
+      name: BUSINESS_NAME,
+      parentCompanyId: PARENT_COMPANY_ID,
+      service: 'storefront',
+      version: 1
+    },
+    databaseConfigured: data.configured,
+    merchandising: {
+      configuredProducts: items.length,
+      featuredProducts: items.filter(x => x.featured).length,
+      bestSellerProducts: items.filter(x => x.bestSeller).length,
+      customMockupProducts: items.filter(x => Array.isArray(x.mockups) && x.mockups.length > 0).length,
+      lastUpdatedAt: items.map(x => x.updatedAt).filter(Boolean).sort().at(-1) || null
+    },
+    capabilities: ['merchandising.read', 'merchandising.write', 'mockups.read', 'mockups.write']
   };
 }
 
@@ -113,7 +149,36 @@ export function registerAdminRoutes(app) {
   });
 
   app.get('/api/admin/session', (req, res) => {
-    res.json({ authenticated: validSession(req), databaseConfigured: Boolean(process.env.DATABASE_URL), adminConfigured: Boolean(process.env.ADMIN_PASSWORD && secret()) });
+    res.json({
+      authenticated: validSession(req),
+      databaseConfigured: Boolean(process.env.DATABASE_URL),
+      adminConfigured: Boolean(process.env.ADMIN_PASSWORD && secret()),
+      businessId: BUSINESS_ID,
+      parentCompanyId: PARENT_COMPANY_ID
+    });
+  });
+
+  app.get('/api/business/manifest', (_req, res) => {
+    res.json({
+      id: BUSINESS_ID,
+      name: BUSINESS_NAME,
+      parentCompanyId: PARENT_COMPANY_ID,
+      service: 'storefront',
+      apiVersion: 1,
+      parentIntegrationReady: Boolean(process.env.PARENT_DASHBOARD_API_KEY),
+      capabilities: ['merchandising', 'custom-mockups'],
+      plannedCapabilities: ['orders', 'analytics', 'homepage-content', 'store-settings']
+    });
+  });
+
+  app.get('/api/integrations/parent/summary', requireParentDashboard, async (_req, res) => {
+    try { res.json(await parentSummary()); }
+    catch (err) { console.error('Parent dashboard summary error:', err); res.status(500).json({ error: 'Unable to load business summary.' }); }
+  });
+
+  app.get('/api/integrations/parent/merchandising', requireParentDashboard, async (_req, res) => {
+    try { res.json(await readOverrides()); }
+    catch (err) { console.error('Parent merchandising read error:', err); res.status(500).json({ error: 'Unable to load merchandising settings.' }); }
   });
 
   app.get('/api/merchandising', async (_req, res) => {
