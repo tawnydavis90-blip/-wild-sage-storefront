@@ -31,4 +31,11 @@ SET domain='https://tawnys-boyfriend-application.tawnydavis90.chatgpt.site',
     dashboard_url='https://tawnys-boyfriend-application.tawnydavis90.chatgpt.site/dashboard'
 WHERE slug='boyfriend-application';
 
+UPDATE sites
+SET domain='https://sin-and-sage.tawnydavis90.chatgpt.site/',
+    name='Sin & Sage Storefront',
+    platform='chatgpt-site-external',
+    status='external'
+WHERE slug='sin-and-sage-storefront';
+
 -- Dashboard URLs for any remaining external sites stay NULL until exact routes are confirmed.
