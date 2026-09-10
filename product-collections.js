@@ -56,4 +56,12 @@ export function registerProductCollectionRoutes(app){
       const r=rows[0];res.json({ok:true,item:{productId:r.product_id,collections:r.collection_ids,updatedAt:r.updated_at}});
     }catch(err){console.error('Product collections save error:',err);res.status(500).json({error:'Unable to save product collections.'})}
   });
+  app.delete('/api/admin/product-collections/:id',requireAdmin,async(req,res)=>{
+    try{
+      if(!(await ensureSchema())) return res.status(503).json({error:'DATABASE_URL is not configured.'});
+      const productId=String(req.params.id||'').trim().slice(0,140); if(!productId)return res.status(400).json({error:'Product id is required.'});
+      await db().query('DELETE FROM product_collection_assignments WHERE product_id=$1',[productId]);
+      res.json({ok:true,productId,automatic:true});
+    }catch(err){console.error('Product collections reset error:',err);res.status(500).json({error:'Unable to reset product collections.'})}
+  });
 }
