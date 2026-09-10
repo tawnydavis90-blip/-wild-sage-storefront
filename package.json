@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "npm run db:migrate:core && node server.js",
+    "start": "npm run db:migrate:core && npm run db:migrate:wild-sage && node server.js",
     "dev": "node --watch server.js",
-    "db:migrate:core": "node scripts/migrate-core.js"
+    "db:migrate:core": "node scripts/migrate-core.js",
+    "db:migrate:wild-sage": "node scripts/migrate-wild-sage-data.js"
   },
   "dependencies": {
     "dotenv": "^16.4.7",
