@@ -35,10 +35,18 @@
     return [...new Set([...customFallback, ...urls])].filter(Boolean);
   }
 
+  function removeBrokenThumb(img) {
+    const thumb = img.closest('.product-thumb');
+    if (!thumb) return false;
+    thumb.remove();
+    return true;
+  }
+
   function showPlaceholder(img) {
+    if (removeBrokenThumb(img)) return;
     const wrap = img.closest('.product-image-wrap, .main-image-frame');
     if (!wrap) {
-      img.style.visibility = 'hidden';
+      img.style.display = 'none';
       return;
     }
     img.remove();
@@ -51,6 +59,13 @@
 
   async function recover(img) {
     if (!(img instanceof HTMLImageElement)) return;
+
+    // Broken thumbnails should disappear instead of leaving giant empty buttons.
+    if (img.closest('.product-thumb')) {
+      removeBrokenThumb(img);
+      return;
+    }
+
     await loadCatalog();
     const tried = new Set((img.dataset.triedSources || '').split('|').filter(Boolean));
     if (img.currentSrc) tried.add(img.currentSrc);
