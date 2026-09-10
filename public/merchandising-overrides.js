@@ -56,7 +56,10 @@
       }
       if (item?.mockups?.[0]) {
         const img = $('.product-image', card);
-        if (img) img.src = item.mockups[0];
+        if (img) {
+          if (!img.dataset.originalSrc) img.dataset.originalSrc = img.src;
+          img.src = item.mockups[0];
+        }
       }
     });
     applying = false;
