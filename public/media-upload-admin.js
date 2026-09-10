@@ -24,9 +24,7 @@
     ctx.drawImage(img,0,0,canvas.width,canvas.height);
     let blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',0.9));
     if(!blob) blob=file;
-    if(blob.size>MAX_UPLOAD) {
-      blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',0.76));
-    }
+    if(blob.size>MAX_UPLOAD) blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',0.76));
     if(!blob || blob.size>MAX_UPLOAD) throw new Error('The image is still too large after compression. Please choose a smaller image.');
     const ext=blob.type==='image/png'?'.png':blob.type==='image/jpeg'?'.jpg':'.webp';
     const base=String(file.name||'mockup').replace(/\.[^.]+$/,'').replace(/[^a-zA-Z0-9._ -]/g,'').trim()||'mockup';
@@ -73,24 +71,24 @@
         if(preview) preview.src=result.url;
         status.textContent='Uploaded. Saving product…';
         const save=$('.save-product',card);
-        if(save){
-          save.click();
-          setTimeout(()=>{status.textContent='Uploaded & saved';},450);
-        } else status.textContent='Uploaded — tap Save';
+        if(save){save.click();setTimeout(()=>{status.textContent='Uploaded & saved';},450);} else status.textContent='Uploaded — tap Save';
       }catch(err){status.textContent=err.message;}
       finally{button.disabled=false;picker.value='';}
     });
   }
 
   function enhanceCards(){
-    $$('.product-admin-card .mockups').forEach(group=>{
-      $$('.mockup-url',group).forEach((input,index)=>enhanceInput(input,index));
-    });
+    $$('.product-admin-card .mockups').forEach(group=>{$$('.mockup-url',group).forEach((input,index)=>enhanceInput(input,index));});
+  }
+
+  function loadMediaLibrary(){
+    if(!document.querySelector('link[href="/media-library.css"]')){const l=document.createElement('link');l.rel='stylesheet';l.href='/media-library.css';document.head.appendChild(l);}
+    if(!document.querySelector('script[src="/media-library.js"]')){const s=document.createElement('script');s.src='/media-library.js';s.defer=true;document.body.appendChild(s);}
   }
 
   const observer=new MutationObserver(()=>enhanceCards());
   function start(){
-    enhanceCards();
+    enhanceCards();loadMediaLibrary();
     const grid=$('#productsGrid');
     if(grid) observer.observe(grid,{childList:true,subtree:true});
     document.querySelector('[data-tab="products"]')?.addEventListener('click',()=>setTimeout(enhanceCards,50));
