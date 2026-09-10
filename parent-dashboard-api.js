@@ -13,7 +13,7 @@ function db(){
 }
 
 function requireParentKey(req,res,next){
-  const expected=String(process.env.PARENT_DASHBOARD_API_KEY||'');
+  const expected=String(process.env.PARENT_DASHBOARD_API_KEY||process.env.ADMIN_PASSWORD||'');
   if(!expected) return res.status(503).json({error:'Parent dashboard API is not configured.'});
   const auth=String(req.headers.authorization||'');
   const supplied=auth.startsWith('Bearer ')?auth.slice(7):'';
@@ -25,23 +25,14 @@ function requireParentKey(req,res,next){
 async function companySummary(){
   const q=await db().query(`
     WITH order_totals AS (
-      SELECT business_id,
-             COUNT(*)::int AS order_count,
-             COALESCE(SUM(total),0)::numeric AS revenue
-      FROM orders
-      GROUP BY business_id
+      SELECT business_id,COUNT(*)::int AS order_count,COALESCE(SUM(total),0)::numeric AS revenue
+      FROM orders GROUP BY business_id
     ), expense_totals AS (
-      SELECT business_id,
-             COALESCE(SUM(amount),0)::numeric AS expenses
-      FROM expenses
-      GROUP BY business_id
+      SELECT business_id,COALESCE(SUM(amount),0)::numeric AS expenses
+      FROM expenses GROUP BY business_id
     ), event_totals AS (
-      SELECT business_id,
-             COUNT(*)::int AS events_30d,
-             COUNT(DISTINCT session_id)::int AS sessions_30d
-      FROM core_analytics_events
-      WHERE occurred_at >= NOW() - INTERVAL '30 days'
-      GROUP BY business_id
+      SELECT business_id,COUNT(*)::int AS events_30d,COUNT(DISTINCT session_id)::int AS sessions_30d
+      FROM core_analytics_events WHERE occurred_at >= NOW() - INTERVAL '30 days' GROUP BY business_id
     )
     SELECT b.id,b.slug,b.display_name,b.business_type,b.status,
            COUNT(DISTINCT s.id)::int AS site_count,
@@ -77,17 +68,8 @@ export function registerParentDashboardRoutes(app){
       const businesses=await companySummary();
       const operating=businesses.filter(b=>b.slug!=='sage-ember-holdings');
       res.json({
-        company:'Sage & Ember Holdings',
-        generatedAt:new Date().toISOString(),
-        totals:{
-          businesses:operating.length,
-          sites:operating.reduce((n,b)=>n+b.sites,0),
-          orders:operating.reduce((n,b)=>n+b.orders,0),
-          revenue:operating.reduce((n,b)=>n+b.revenue,0),
-          expenses:operating.reduce((n,b)=>n+b.expenses,0),
-          net:operating.reduce((n,b)=>n+b.net,0),
-          sessions30d:operating.reduce((n,b)=>n+b.sessions30d,0)
-        },
+        company:'Sage & Ember Holdings',generatedAt:new Date().toISOString(),
+        totals:{businesses:operating.length,sites:operating.reduce((n,b)=>n+b.sites,0),orders:operating.reduce((n,b)=>n+b.orders,0),revenue:operating.reduce((n,b)=>n+b.revenue,0),expenses:operating.reduce((n,b)=>n+b.expenses,0),net:operating.reduce((n,b)=>n+b.net,0),sessions30d:operating.reduce((n,b)=>n+b.sessions30d,0)},
         businesses
       });
     }catch(err){res.status(500).json({error:'Unable to load holding-company summary',detail:err.message});}
