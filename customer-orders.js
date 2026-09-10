@@ -1,8 +1,53 @@
 import Stripe from 'stripe';
 import {getFriendlyOrderNumber,resolveFriendlyOrderNumber} from './order-management.js';
-const stripe=process.env.STRIPE_SECRET_KEY?new Stripe(process.env.STRIPE_SECRET_KEY):null;const testStripe=process.env.STRIPE_TEST_SECRET_KEY?new Stripe(process.env.STRIPE_TEST_SECRET_KEY):null;const API_BASE='https://api.printify.com/v1';let shopId=null;
+const stripe=process.env.STRIPE_SECRET_KEY?new Stripe(process.env.STRIPE_SECRET_KEY):null;
+const testStripe=process.env.STRIPE_TEST_SECRET_KEY?new Stripe(process.env.STRIPE_TEST_SECRET_KEY):null;
+const API_BASE='https://api.printify.com/v1';let shopId=null;
+
 async function printify(path){const token=process.env.PRINTIFY_API_TOKEN;if(!token)throw new Error('Printify not configured');const r=await fetch(`${API_BASE}${path}`,{headers:{Authorization:`Bearer ${token}`,'User-Agent':'WildSageApparel/0.1'}});if(!r.ok)throw new Error(`Printify ${r.status}`);return r.json();}
 async function getShop(){if(shopId)return shopId;const s=await printify('/shops.json'),list=Array.isArray(s)?s:(s.data||[]),found=list.find(x=>String(x.title||x.name||'').trim().toLowerCase()==='wild sage apparel')||list[0];if(!found)throw new Error('No Printify shop');shopId=String(found.id);return shopId;}
 async function fulfillment(sessionId){if(String(sessionId).startsWith('cs_test_'))return{test:true,status:'test order — not sent to Printify',tracking:[]};try{const id=await getShop(),data=await printify(`/shops/${id}/orders.json?limit=100`),orders=Array.isArray(data)?data:(data.data||[]),o=orders.find(x=>String(x.external_id||'')===String(sessionId));if(!o)return null;const shipments=Array.isArray(o.shipments)?o.shipments:[];return{id:o.id,status:o.status||'',tracking:shipments.map(s=>({carrier:s.carrier||'',number:s.number||s.tracking_number||'',url:s.url||s.tracking_url||'',deliveredAt:s.delivered_at||null})).filter(x=>x.number||x.url)};}catch{return null;}}
-function cleanEmail(v){return String(v||'').trim().toLowerCase().slice(0,254);}function safeSession(s){return{id:s.id,isTest:String(s.id).startsWith('cs_test_'),created:new Date(s.created*1000).toISOString(),paymentStatus:s.payment_status||'',status:s.status||'',currency:String(s.currency||'usd').toUpperCase(),total:Number(s.amount_total||0)/100,items:(s.line_items?.data||[]).map(i=>({description:i.description||'',quantity:i.quantity||0,total:Number(i.amount_total||0)/100}))};}
-export function registerCustomerOrderRoutes(app){app.post('/api/customer/order-lookup',async(req,res)=>{if(!stripe&&!testStripe)return res.status(503).json({error:'Order lookup is temporarily unavailable.'});const email=cleanEmail(req.body?.email),entered=String(req.body?.orderId||'').trim();if(!email||!entered)return res.status(400).json({error:'Enter the email used at checkout and your Wild Sage order number.'});try{const sessionId=entered.toLowerCase().startsWith('cs_')?entered:await resolveFriendlyOrderNumber(entered);if(!sessionId)return res.status(404).json({error:'We could not find an order matching those details.'});const client=String(sessionId).startsWith('cs_test_')?testStripe:stripe;if(!client)return res.status(404).json({error:'We could not find an order matching those details.'});const s=await client.checkout.sessions.retrieve(sessionId,{expand:['line_items']});const actual=cleanEmail(s.customer_details?.email||s.customer_email);if(!actual||actual!==email)return res.status(404).json({error:'We could not find an order matching those details.'});const order=safeSession(s);order.orderNumber=await getFriendlyOrderNumber(s.id);order.fulfillment=await fulfillment(s.id);res.json({order});}catch(err){if(err?.statusCode===404)return res.status(404).json({error:'We could not find an order matching those details.'});console.error('Customer order lookup:',err);res.status(500).json({error:'Unable to look up this order right now.'});}});}
+function cleanEmail(v){return String(v||'').trim().toLowerCase().slice(0,254);}
+function safeSession(s){return{id:s.id,isTest:String(s.id).startsWith('cs_test_'),created:new Date(s.created*1000).toISOString(),paymentStatus:s.payment_status||'',status:s.status||'',currency:String(s.currency||'usd').toUpperCase(),total:Number(s.amount_total||0)/100,items:(s.line_items?.data||[]).map(i=>({description:i.description||'',quantity:i.quantity||0,total:Number(i.amount_total||0)/100}))};}
+
+async function resolveEnteredOrder(entered){
+  const raw=String(entered||'').trim();
+  if(raw.toLowerCase().startsWith('cs_'))return raw;
+  let sessionId=await resolveFriendlyOrderNumber(raw);
+  if(sessionId)return sessionId;
+
+  // Repair/fallback for older test orders whose friendly-number mapping was not persisted yet.
+  if(/^TEST-WS-\d+$/i.test(raw)&&testStripe){
+    const sessions=await testStripe.checkout.sessions.list({limit:100});
+    for(const s of sessions.data){
+      const friendly=await getFriendlyOrderNumber(s.id);
+      if(String(friendly).toUpperCase()===raw.toUpperCase())return s.id;
+    }
+  }
+  return null;
+}
+
+export function registerCustomerOrderRoutes(app){
+  app.post('/api/customer/order-lookup',async(req,res)=>{
+    if(!stripe&&!testStripe)return res.status(503).json({error:'Order lookup is temporarily unavailable.'});
+    const email=cleanEmail(req.body?.email),entered=String(req.body?.orderId||'').trim();
+    if(!email||!entered)return res.status(400).json({error:'Enter the email used at checkout and your Wild Sage order number.'});
+    try{
+      const sessionId=await resolveEnteredOrder(entered);
+      if(!sessionId)return res.status(404).json({error:'We could not find an order matching those details.'});
+      const client=String(sessionId).startsWith('cs_test_')?testStripe:stripe;
+      if(!client)return res.status(404).json({error:'We could not find an order matching those details.'});
+      const s=await client.checkout.sessions.retrieve(sessionId,{expand:['line_items']});
+      const actual=cleanEmail(s.customer_details?.email||s.customer_email);
+      if(!actual||actual!==email)return res.status(404).json({error:'We found the order number, but the email does not match the email used at checkout.'});
+      const order=safeSession(s);
+      order.orderNumber=await getFriendlyOrderNumber(s.id);
+      order.fulfillment=await fulfillment(s.id);
+      res.json({order});
+    }catch(err){
+      if(err?.statusCode===404)return res.status(404).json({error:'We could not find an order matching those details.'});
+      console.error('Customer order lookup:',err);
+      res.status(500).json({error:'Unable to look up this order right now.'});
+    }
+  });
+}
