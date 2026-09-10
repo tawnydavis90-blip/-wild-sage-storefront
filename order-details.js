@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import Stripe from 'stripe';
+import { findPrintifyOrderByExternalId, printifyConfigured } from './printify-admin-data.js';
 
 const COOKIE_NAME = 'wild_sage_admin';
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
@@ -32,7 +33,12 @@ export function registerOrderDetailRoutes(app){
     const id=String(req.params.id||'').trim();
     if(!id.startsWith('cs_')) return res.status(400).json({error:'Invalid Stripe checkout session id.'});
     try{
-      const session=await stripe.checkout.sessions.retrieve(id,{expand:['line_items.data.price.product','payment_intent','customer']});
+      const [session, fulfillmentResult] = await Promise.all([
+        stripe.checkout.sessions.retrieve(id,{expand:['line_items.data.price.product','payment_intent','customer']}),
+        printifyConfigured()
+          ? findPrintifyOrderByExternalId(id).catch(err=>{console.error('Printify order lookup error:',err);return null;})
+          : Promise.resolve(null)
+      ]);
       const shipping=session.collected_information?.shipping_details||session.shipping_details||null;
       const customer=session.customer_details||{};
       const intent=typeof session.payment_intent==='object'?session.payment_intent:null;
@@ -78,7 +84,12 @@ export function registerOrderDetailRoutes(app){
         },
         clientReferenceId:session.client_reference_id||'',
         metadata:session.metadata||{},
-        items
+        items,
+        fulfillment:{
+          configured:printifyConfigured(),
+          matched:Boolean(fulfillmentResult),
+          order:fulfillmentResult
+        }
       });
     }catch(err){
       console.error('Stripe order detail error:',err);
