@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { registerAdminRoutes } from './admin.js';
 import { registerProductCollectionRoutes } from './product-collections.js';
+import { registerOrderDetailRoutes } from './order-details.js';
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -17,6 +18,7 @@ const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SEC
 app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
 registerAdminRoutes(app);
 registerProductCollectionRoutes(app);
+registerOrderDetailRoutes(app);
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/admin', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
