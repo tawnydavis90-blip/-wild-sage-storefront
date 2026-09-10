@@ -57,6 +57,29 @@ function requireAdmin(req,res,next){
 function cleanName(value){
   return String(value||'image').replace(/[\r\n]/g,' ').replace(/[^a-zA-Z0-9._ -]/g,'').trim().slice(0,160) || 'image';
 }
+function mediaUrl(req,id){
+  const protocol=process.env.NODE_ENV==='production'?'https':req.protocol;
+  return `${protocol}://${req.get('host')}/api/media/${id}`;
+}
+async function usageFor(req,id){
+  const client=db();
+  if(!client) return [];
+  try{
+    const absolute=mediaUrl(req,id);
+    const relative=`/api/media/${id}`;
+    const {rows}=await client.query(`
+      SELECT product_id, mockup_urls
+      FROM product_merchandising
+      WHERE mockup_urls::text LIKE $1 OR mockup_urls::text LIKE $2
+    `,[`%${absolute}%`,`%${relative}%`]);
+    return rows.map(r=>({
+      productId:r.product_id,
+      slots:(Array.isArray(r.mockup_urls)?r.mockup_urls:[]).map((url,index)=>({url,index})).filter(x=>String(x.url||'').includes(`/api/media/${id}`)).map(x=>x.index)
+    })).filter(x=>x.slots.length);
+  }catch{
+    return [];
+  }
+}
 
 export function registerMediaRoutes(app){
   app.post('/api/admin/media', requireAdmin, express.raw({type:'application/octet-stream',limit:'6mb'}), async(req,res)=>{
@@ -69,8 +92,7 @@ export function registerMediaRoutes(app){
       const id=crypto.randomUUID();
       const filename=cleanName(req.headers['x-file-name']);
       await db().query('INSERT INTO admin_media(id,filename,mime_type,media_bytes,size_bytes) VALUES($1,$2,$3,$4,$5)',[id,filename,mime,req.body,req.body.length]);
-      const protocol=process.env.NODE_ENV==='production'?'https':req.protocol;
-      res.status(201).json({ok:true,id,filename,mimeType:mime,size:req.body.length,url:`${protocol}://${req.get('host')}/api/media/${id}`});
+      res.status(201).json({ok:true,id,filename,mimeType:mime,size:req.body.length,url:mediaUrl(req,id)});
     }catch(err){
       console.error('Media upload error:',err);
       res.status(500).json({error:'Unable to upload image.'});
@@ -94,19 +116,42 @@ export function registerMediaRoutes(app){
     }
   });
 
-  app.get('/api/admin/media', requireAdmin, async(_req,res)=>{
+  app.get('/api/admin/media', requireAdmin, async(req,res)=>{
     try{
       if(!(await ensureSchema())) return res.json({configured:false,items:[]});
-      const {rows}=await db().query('SELECT id,filename,mime_type,size_bytes,created_at FROM admin_media ORDER BY created_at DESC LIMIT 100');
-      res.json({configured:true,items:rows.map(r=>({id:r.id,filename:r.filename,mimeType:r.mime_type,size:r.size_bytes,createdAt:r.created_at,url:`/api/media/${r.id}`}))});
-    }catch(err){res.status(500).json({error:'Unable to load media library.'});}
+      const {rows}=await db().query('SELECT id,filename,mime_type,size_bytes,created_at FROM admin_media ORDER BY created_at DESC LIMIT 250');
+      const items=[];
+      for(const r of rows){
+        const usage=await usageFor(req,r.id);
+        items.push({
+          id:r.id,
+          filename:r.filename,
+          mimeType:r.mime_type,
+          size:r.size_bytes,
+          createdAt:r.created_at,
+          url:`/api/media/${r.id}`,
+          usage,
+          usageCount:usage.length
+        });
+      }
+      res.json({configured:true,items});
+    }catch(err){
+      console.error('Media library error:',err);
+      res.status(500).json({error:'Unable to load media library.'});
+    }
   });
 
   app.delete('/api/admin/media/:id', requireAdmin, async(req,res)=>{
     try{
       if(!(await ensureSchema())) return res.status(503).json({error:'DATABASE_URL is not configured.'});
-      await db().query('DELETE FROM admin_media WHERE id=$1',[String(req.params.id||'')]);
+      const id=String(req.params.id||'');
+      const usage=await usageFor(req,id);
+      if(usage.length) return res.status(409).json({error:'This image is still assigned to a product. Remove it from those products before deleting it.',usage});
+      await db().query('DELETE FROM admin_media WHERE id=$1',[id]);
       res.json({ok:true});
-    }catch(err){res.status(500).json({error:'Unable to delete image.'});}
+    }catch(err){
+      console.error('Media delete error:',err);
+      res.status(500).json({error:'Unable to delete image.'});
+    }
   });
 }
