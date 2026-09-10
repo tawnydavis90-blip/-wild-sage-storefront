@@ -3,8 +3,8 @@
 
 CREATE TABLE IF NOT EXISTS password_vault (
   id BIGSERIAL PRIMARY KEY,
-  business_id BIGINT REFERENCES businesses(id) ON DELETE SET NULL,
-  site_id BIGINT REFERENCES sites(id) ON DELETE SET NULL,
+  business_id UUID REFERENCES businesses(id) ON DELETE SET NULL,
+  site_id UUID REFERENCES sites(id) ON DELETE SET NULL,
   label TEXT NOT NULL,
   website_url TEXT,
   username TEXT,
