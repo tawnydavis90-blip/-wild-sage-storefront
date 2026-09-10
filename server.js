@@ -42,43 +42,25 @@ async function printify(pathname, options = {}) {
   return data;
 }
 
-
 async function getShopId() {
   if (resolvedShopId) return resolvedShopId;
-
   const shops = await printify('/shops.json');
   const list = Array.isArray(shops) ? shops : (shops?.data || []);
-
-  if (!list.length) {
-    throw new Error('No Printify shops are available for this token');
-  }
-
+  if (!list.length) throw new Error('No Printify shops are available for this token');
   const targetShopName = 'wild sage apparel';
-
-  const shop = list.find(s =>
-    String(s.title || s.name || '')
-      .trim()
-      .replace(/\s+/g, ' ')
-      .toLowerCase() === targetShopName
-  );
-
+  const shop = list.find(s => String(s.title || s.name || '').trim().replace(/\s+/g, ' ').toLowerCase() === targetShopName);
   if (!shop) {
-    const available = list
-      .map(s => s.title || s.name || `Shop ${s.id}`)
-      .join(', ');
-
-    throw new Error(
-      `Printify shop "${targetShopName}" was not found. Available shops: ${available}`
-    );
+    const available = list.map(s => s.title || s.name || `Shop ${s.id}`).join(', ');
+    throw new Error(`Printify shop "${targetShopName}" was not found. Available shops: ${available}`);
   }
-
   resolvedShopId = String(shop.id);
   return resolvedShopId;
 }
 
 function normalizeProduct(p) {
-  const enabled = (p.variants || []).filter(v => v.is_enabled !== false && v.is_available !== false);
-  const prices = enabled.map(v => v.price).filter(Number.isFinite);
+  const enabled = (p.variants || []).filter(v => v.is_enabled !== false);
+  const purchasable = enabled.filter(v => v.is_available !== false);
+  const prices = purchasable.map(v => v.price).filter(Number.isFinite);
   const images = (p.images || []).map(i => ({ src: i.src, variantIds: i.variant_ids || [], position: i.position || 'front' }));
   return {
     id: p.id,
@@ -142,57 +124,25 @@ app.get('/api/products/:id', async (req, res) => {
   }
 });
 
-
 app.post('/api/checkout', async (req, res) => {
   if (!stripe) return res.status(503).json({ error: 'Stripe is not configured.' });
-
   const { items } = req.body || {};
-  if (!Array.isArray(items) || !items.length) {
-    return res.status(400).json({ error: 'Your bag is empty.' });
-  }
-
+  if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Your bag is empty.' });
   try {
-    // Re-read every product from Printify so the browser cannot choose its own price.
     const shopId = await getShopId();
     const lineItems = [];
     const orderItems = [];
-
     for (const item of items) {
       const product = await printify(`/shops/${shopId}/products/${encodeURIComponent(item.productId)}.json`);
-      const variant = (product.variants || []).find(v =>
-        String(v.id) === String(item.variantId) &&
-        v.is_enabled !== false &&
-        v.is_available !== false
-      );
+      const variant = (product.variants || []).find(v => String(v.id) === String(item.variantId) && v.is_enabled !== false && v.is_available !== false);
       if (!variant) throw new Error(`A selected option for "${product.title}" is no longer available.`);
-
       const quantity = Math.max(1, Math.min(10, Number(item.quantity || 1)));
-      const image = product.images?.find(i => (i.variant_ids || []).includes(Number(variant.id)))?.src
-        || product.images?.[0]?.src;
-
-      lineItems.push({
-        price_data: {
-          currency: 'usd',
-          unit_amount: Number(variant.price),
-          product_data: {
-            name: product.title,
-            description: variant.title,
-            ...(image ? { images: [image] } : {})
-          }
-        },
-        quantity
-      });
-
-      orderItems.push({
-        productId: product.id,
-        variantId: Number(variant.id),
-        quantity
-      });
+      const image = product.images?.find(i => (i.variant_ids || []).includes(Number(variant.id)))?.src || product.images?.[0]?.src;
+      lineItems.push({ price_data: { currency: 'usd', unit_amount: Number(variant.price), product_data: { name: product.title, description: variant.title, ...(image ? { images: [image] } : {}) } }, quantity });
+      orderItems.push({ productId: product.id, variantId: Number(variant.id), quantity });
     }
-
     const origin = process.env.PUBLIC_STORE_URL || `${req.protocol}://${req.get('host')}`;
     const cartId = crypto.randomUUID();
-
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: lineItems,
@@ -203,12 +153,8 @@ app.post('/api/checkout', async (req, res) => {
       billing_address_collection: 'auto',
       customer_creation: 'always',
       client_reference_id: cartId,
-      metadata: {
-        cart_id: cartId,
-        printify_items: JSON.stringify(orderItems)
-      }
+      metadata: { cart_id: cartId, printify_items: JSON.stringify(orderItems) }
     });
-
     res.json({ url: session.url });
   } catch (err) {
     console.error('Stripe checkout error:', err);
@@ -223,10 +169,7 @@ app.post('/api/shipping', async (req, res) => {
   if (!Array.isArray(items) || !items.length || !address) return res.status(400).json({ error: 'Cart items and shipping address are required.' });
   try {
     const shopId = await getShopId();
-    const payload = {
-      line_items: items.map(x => ({ product_id: x.productId, variant_id: Number(x.variantId), quantity: Math.max(1, Number(x.quantity || 1)) })),
-      address_to: address
-    };
+    const payload = { line_items: items.map(x => ({ product_id: x.productId, variant_id: Number(x.variantId), quantity: Math.max(1, Number(x.quantity || 1)) })), address_to: address };
     const rates = await printify(`/shops/${shopId}/orders/shipping.json`, { method: 'POST', body: JSON.stringify(payload) });
     res.json(rates);
   } catch (err) {
@@ -234,13 +177,9 @@ app.post('/api/shipping', async (req, res) => {
   }
 });
 
-// IMPORTANT: This route intentionally requires a server-created payment proof.
-// Wire this to Stripe/another processor webhook before enabling real checkout.
 app.post('/api/orders', async (req, res) => {
   const { items, address, payment } = req.body || {};
-  if (!payment?.verified || !payment?.reference) {
-    return res.status(402).json({ error: 'Verified payment is required before fulfillment.' });
-  }
+  if (!payment?.verified || !payment?.reference) return res.status(402).json({ error: 'Verified payment is required before fulfillment.' });
   if (!Array.isArray(items) || !items.length || !address) return res.status(400).json({ error: 'Cart items and shipping address are required.' });
   try {
     const shopId = await getShopId();
@@ -261,8 +200,6 @@ app.post('/api/orders', async (req, res) => {
 });
 
 app.post('/api/webhooks/printify', (req, res) => {
-  // Printify signs webhooks when a secret is configured. Signature-header naming can vary by integration version;
-  // validate against the current docs before production and then process product/order events here.
   console.log('Printify webhook:', req.body?.type || req.body?.topic || 'event');
   res.sendStatus(200);
 });
@@ -270,21 +207,9 @@ app.post('/api/webhooks/printify', (req, res) => {
 app.get('/*splat', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const demoProducts = [
-  {
-    id: 'demo-5083', title: 'Same Soul • Higher Standards Crop', description: 'A cropped Wild Sage staple with bold black linework and a soft, lived-in feel.', tags: ['Crops','New Drop'], visible: true, minPrice: 34,
-    images: [{ src: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=900&q=80', variantIds: [], position: 'front' }],
-    variants: [{ id: 101, title: 'Black / S', price: 34 }, { id: 102, title: 'Black / M', price: 34 }, { id: 103, title: 'Bone / M', price: 34 }]
-  },
-  {
-    id: 'demo-psy', title: 'Mushroom Moon Tank', description: 'Psychedelic botanical linework made for layering, festivals, and late nights.', tags: ['Tanks','Psychedelic'], visible: true, minPrice: 30,
-    images: [{ src: 'https://images.unsplash.com/photo-1583743814966-8936f37f4ec7?auto=format&fit=crop&w=900&q=80', variantIds: [], position: 'front' }],
-    variants: [{ id: 201, title: 'White / S', price: 30 }, { id: 202, title: 'Black / M', price: 30 }]
-  },
-  {
-    id: 'demo-horror', title: 'Beautifully Broken Hoodie', description: 'Dark hippie energy with a horror edge. Oversized attitude, soft fleece.', tags: ['Hoodies','Dark Hippie'], visible: true, minPrice: 56,
-    images: [{ src: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&w=900&q=80', variantIds: [], position: 'front' }],
-    variants: [{ id: 301, title: 'Black / M', price: 56 }, { id: 302, title: 'Black / L', price: 56 }]
-  }
+  { id: 'demo-5083', title: 'Same Soul • Higher Standards Crop', description: 'A cropped Wild Sage staple with bold black linework and a soft, lived-in feel.', tags: ['Crops','New Drop'], visible: true, minPrice: 34, images: [{ src: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=900&q=80', variantIds: [], position: 'front' }], variants: [{ id: 101, title: 'Black / S', price: 34, available: true }, { id: 102, title: 'Black / M', price: 34, available: true }, { id: 103, title: 'Bone / M', price: 34, available: false }] },
+  { id: 'demo-psy', title: 'Mushroom Moon Tank', description: 'Psychedelic botanical linework made for layering, festivals, and late nights.', tags: ['Tanks','Psychedelic'], visible: true, minPrice: 30, images: [{ src: 'https://images.unsplash.com/photo-1583743814966-8936f37f4ec7?auto=format&fit=crop&w=900&q=80', variantIds: [], position: 'front' }], variants: [{ id: 201, title: 'White / S', price: 30, available: true }, { id: 202, title: 'Black / M', price: 30, available: true }] },
+  { id: 'demo-horror', title: 'Beautifully Broken Hoodie', description: 'Dark hippie energy with a horror edge. Oversized attitude, soft fleece.', tags: ['Hoodies','Dark Hippie'], visible: true, minPrice: 56, images: [{ src: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&w=900&q=80', variantIds: [], position: 'front' }], variants: [{ id: 301, title: 'Black / M', price: 56, available: true }, { id: 302, title: 'Black / L', price: 56, available: true }] }
 ];
 
 app.listen(PORT, () => console.log(`Wild Sage storefront running at http://localhost:${PORT}`));
