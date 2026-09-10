@@ -1,0 +1,18 @@
+.product-badge{display:none!important}
+.product-card{border-color:rgba(238,231,220,.14)!important;background:linear-gradient(180deg,rgba(255,255,255,.015),rgba(255,255,255,.005))!important;transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease!important}
+.product-card:hover{transform:translateY(-3px);border-color:rgba(238,231,220,.28)!important;box-shadow:0 14px 34px rgba(0,0,0,.22)!important}
+.product-image-wrap{overflow:hidden!important;background:#f2eee7!important}
+.product-image{transition:transform .35s ease!important}
+.product-card:hover .product-image{transform:scale(1.015)!important}
+.product-info{padding:22px 22px 20px!important}
+.product-title{margin:0 0 8px!important;font-family:"Cormorant Garamond",serif!important;font-size:clamp(1.35rem,2vw,1.85rem)!important;line-height:1.12!important;letter-spacing:-.01em!important}
+.product-price{margin:0 0 18px!important;color:#d5c5b4!important;font-size:1rem!important;letter-spacing:.01em!important}
+.product-info .variant-dots{display:none!important}
+.card-actions{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;margin-top:8px!important}
+.card-actions button{min-height:50px!important;border-radius:0!important;text-transform:uppercase!important;letter-spacing:.14em!important;font-size:.72rem!important;font-weight:600!important;transition:background .2s ease,color .2s ease,border-color .2s ease,transform .2s ease!important}
+.card-actions .details{background:transparent!important;color:var(--cream)!important;border:1px solid rgba(238,231,220,.32)!important}
+.card-actions .details:hover,.card-actions .details:focus-visible{background:rgba(238,231,220,.07)!important;border-color:rgba(238,231,220,.58)!important}
+.card-actions .quick-add{background:#d7c2ab!important;color:#11130f!important;border:1px solid #d7c2ab!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)!important}
+.card-actions .quick-add:hover,.card-actions .quick-add:focus-visible{background:#e4d2bf!important;border-color:#e4d2bf!important;transform:translateY(-1px)!important}
+.card-actions button:focus-visible{outline:2px solid var(--rose)!important;outline-offset:2px!important}
+@media(max-width:760px){.product-info{padding:18px 16px 16px!important}.product-title{font-size:1.35rem!important}.product-price{margin-bottom:14px!important}.card-actions button{min-height:46px!important;font-size:.68rem!important}}
