@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d09">
+  <title>Wild Sage Admin</title>
+  <link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+  <main class="admin-shell">
+    <section id="loginView" class="login-card">
+      <p class="eyebrow">WILD SAGE APPAREL</p>
+      <h1>Admin</h1>
+      <p class="muted">Manage featured products, best sellers, and custom mockups.</p>
+      <form id="loginForm">
+        <label for="adminPassword">Password</label>
+        <input id="adminPassword" type="password" autocomplete="current-password" required>
+        <button type="submit">Enter Dashboard</button>
+        <p id="loginMessage" class="message"></p>
+      </form>
+    </section>
+
+    <section id="dashboardView" hidden>
+      <header class="admin-header">
+        <div>
+          <p class="eyebrow">WILD SAGE APPAREL</p>
+          <h1>Merchandising Dashboard</h1>
+          <p class="muted">Control what the storefront highlights without changing Printify tags.</p>
+        </div>
+        <div class="header-actions">
+          <a href="/" target="_blank" rel="noopener">View Store</a>
+          <button id="logoutButton" type="button" class="ghost">Log Out</button>
+        </div>
+      </header>
+
+      <div id="setupNotice" class="setup-notice" hidden></div>
+
+      <div class="toolbar">
+        <input id="productSearch" type="search" placeholder="Search products">
+        <span id="productCount" class="muted"></span>
+      </div>
+
+      <div id="productsGrid" class="products-grid"></div>
+    </section>
+  </main>
+  <script src="/admin-client.js" defer></script>
+</body>
+</html>
