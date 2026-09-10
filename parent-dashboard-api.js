@@ -5,6 +5,8 @@ import Stripe from 'stripe';
 const { Pool } = pg;
 let pool;
 const stripe=process.env.STRIPE_SECRET_KEY?new Stripe(process.env.STRIPE_SECRET_KEY):null;
+const PRINTIFY_API='https://api.printify.com/v1';
+let printifyShopId=null;
 
 function db(){
   if(!pool){
@@ -19,14 +21,53 @@ function validAdminSession(req){const secret=String(process.env.ADMIN_SESSION_SE
 function requireParentKey(req,res,next){if(validAdminSession(req))return next();const supplied=String(req.headers.authorization||'').replace(/^Bearer\s+/i,''),parentKey=String(process.env.PARENT_DASHBOARD_API_KEY||''),adminPassword=String(process.env.ADMIN_PASSWORD||'');if(safeEqual(supplied,parentKey)||safeEqual(supplied,adminPassword))return next();return res.status(401).json({error:'Unauthorized'});}
 const money=v=>Number(v||0)/100;
 
+async function printify(pathname){
+  const token=process.env.PRINTIFY_API_TOKEN;
+  if(!token)return null;
+  const r=await fetch(`${PRINTIFY_API}${pathname}`,{headers:{Authorization:`Bearer ${token}`,'User-Agent':'SageEmberHQ/1.0'}});
+  if(!r.ok)return null;
+  return r.json();
+}
+async function getPrintifyShopId(){
+  if(printifyShopId)return printifyShopId;
+  const data=await printify('/shops.json');
+  const shops=Array.isArray(data)?data:(data?.data||[]);
+  const match=shops.find(s=>String(s.title||s.name||'').trim().replace(/\s+/g,' ').toLowerCase()==='wild sage apparel')||shops[0];
+  printifyShopId=match?String(match.id):null;
+  return printifyShopId;
+}
+async function getPrintifyOrdersByExternalId(){
+  const shopId=await getPrintifyShopId();
+  if(!shopId)return new Map();
+  const data=await printify(`/shops/${shopId}/orders.json?limit=100`);
+  const orders=Array.isArray(data)?data:(data?.data||[]);
+  return new Map(orders.map(o=>[String(o.external_id||''),o]));
+}
+function normalizePrintifyStatus(order,paymentStatus){
+  if(order?.status)return String(order.status).toLowerCase().replace(/_/g,' ');
+  if(paymentStatus==='paid')return 'awaiting Printify fulfillment';
+  return 'not sent to Printify';
+}
+function trackingFor(order){
+  const shipments=Array.isArray(order?.shipments)?order.shipments:[];
+  return shipments.map(s=>({carrier:s.carrier||'',number:s.number||s.tracking_number||'',url:s.url||s.tracking_url||''})).filter(s=>s.number||s.url);
+}
+
 async function stripeWildSageOrders(){
   if(!stripe)return [];
-  const sessions=await stripe.checkout.sessions.list({limit:100});
-  return sessions.data.filter(s=>s.payment_status==='paid'&&s.metadata?.wild_sage_test!=='true'&&s.metadata?.do_not_fulfill!=='true'&&!String(s.id||'').startsWith('cs_test_')).map(s=>({
-    id:s.id,source:'stripe',businessSlug:'wild-sage-apparel',businessName:'Wild Sage Apparel',status:s.payment_status,
-    amount:money(s.amount_total),currency:String(s.currency||'usd').toUpperCase(),createdAt:new Date(s.created*1000).toISOString(),
-    customer:s.customer_details?.name||'',email:s.customer_details?.email||s.customer_email||'',reference:s.client_reference_id||s.id
-  }));
+  const [sessions,byExternal]=await Promise.all([stripe.checkout.sessions.list({limit:100}),getPrintifyOrdersByExternalId()]);
+  return sessions.data.filter(s=>s.payment_status==='paid'&&s.metadata?.wild_sage_test!=='true'&&s.metadata?.do_not_fulfill!=='true'&&!String(s.id||'').startsWith('cs_test_')).map(s=>{
+    const pf=byExternal.get(String(s.id));
+    const printifyStatus=normalizePrintifyStatus(pf,s.payment_status);
+    const tracking=trackingFor(pf);
+    return {
+      id:s.id,source:'stripe + printify',businessSlug:'wild-sage-apparel',businessName:'Wild Sage Apparel',
+      status:`${s.payment_status} → ${printifyStatus}`,paymentStatus:s.payment_status,printifyStatus,
+      amount:money(s.amount_total),currency:String(s.currency||'usd').toUpperCase(),createdAt:new Date(s.created*1000).toISOString(),
+      customer:s.customer_details?.name||'',email:s.customer_details?.email||s.customer_email||'',reference:s.client_reference_id||s.id,
+      printifyOrderId:pf?.id||null,tracking,hasProblem:s.payment_status==='paid'&&!pf
+    };
+  });
 }
 async function stripeWildSageSummary(){try{const rows=await stripeWildSageOrders();return{orders:rows.length,revenue:rows.reduce((s,r)=>s+r.amount,0)}}catch(err){console.error('Sage & Ember Stripe summary error:',err.message);return null;}}
 
@@ -58,7 +99,7 @@ async function financialSnapshot(){
 async function masterOrders(){
   const stripeRows=await stripeWildSageOrders();
   const central=await db().query(`SELECT o.id,o.status,o.total,o.currency,o.created_at,b.slug AS business_slug,b.display_name AS business_name FROM orders o JOIN businesses b ON b.id=o.business_id WHERE b.slug<>'wild-sage-apparel' ORDER BY o.created_at DESC LIMIT 200`);
-  const dbRows=central.rows.map(r=>({id:r.id,source:'database',businessSlug:r.business_slug,businessName:r.business_name,status:r.status,amount:Number(r.total||0),currency:String(r.currency||'USD').toUpperCase(),createdAt:r.created_at,customer:'',email:'',reference:String(r.id)}));
+  const dbRows=central.rows.map(r=>({id:r.id,source:'database',businessSlug:r.business_slug,businessName:r.business_name,status:r.status,paymentStatus:r.status,printifyStatus:null,amount:Number(r.total||0),currency:String(r.currency||'USD').toUpperCase(),createdAt:r.created_at,customer:'',email:'',reference:String(r.id),printifyOrderId:null,tracking:[],hasProblem:false}));
   return [...stripeRows,...dbRows].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
 }
 
@@ -66,7 +107,7 @@ async function systemHealth(){
   const checks=[];
   try{await db().query('SELECT 1');checks.push({name:'Sage & Ember PostgreSQL',status:'healthy',detail:'Connected'});}catch(err){checks.push({name:'Sage & Ember PostgreSQL',status:'error',detail:err.message});}
   if(stripe){try{await stripe.balance.retrieve();checks.push({name:'Stripe',status:'healthy',detail:'Connected'});}catch(err){checks.push({name:'Stripe',status:'error',detail:err.message});}}else checks.push({name:'Stripe',status:'warning',detail:'Not configured'});
-  checks.push({name:'Printify',status:process.env.PRINTIFY_API_TOKEN?'healthy':'warning',detail:process.env.PRINTIFY_API_TOKEN?'API token configured':'API token missing'});
+  if(process.env.PRINTIFY_API_TOKEN){try{const shopId=await getPrintifyShopId();checks.push({name:'Printify',status:shopId?'healthy':'warning',detail:shopId?'Connected to Wild Sage Apparel':'Token configured but shop not resolved'});}catch(err){checks.push({name:'Printify',status:'error',detail:err.message});}}else checks.push({name:'Printify',status:'warning',detail:'API token missing'});
   checks.push({name:'Stripe Webhook',status:process.env.STRIPE_WEBHOOK_SECRET?'healthy':'warning',detail:process.env.STRIPE_WEBHOOK_SECRET?'Webhook secret configured':'Webhook secret missing'});
   checks.push({name:'Password Vault',status:(process.env.PASSWORD_VAULT_KEY||process.env.ADMIN_SESSION_SECRET||process.env.ADMIN_PASSWORD)?'healthy':'warning',detail:(process.env.PASSWORD_VAULT_KEY||process.env.ADMIN_SESSION_SECRET||process.env.ADMIN_PASSWORD)?'Encryption key available':'Encryption key unavailable'});
   const sites=await portfolioSites();
