@@ -2,12 +2,20 @@
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
+  function productForCard(card) {
+    const title = $('.product-title', card)?.textContent?.trim() || '';
+    return (typeof state !== 'undefined' && Array.isArray(state.products))
+      ? state.products.find(p => String(p.title || '').trim() === title)
+      : null;
+  }
+
   function cardData(card) {
     const title = $('.product-title', card)?.textContent?.trim() || '';
     const priceText = $('.product-price', card)?.textContent || '';
     const price = Number((priceText.match(/[\d.]+/) || ['0'])[0]);
-    const badge = $('.product-badge', card)?.textContent?.trim() || '';
-    return { card, title, price, badge };
+    const product = productForCard(card);
+    const tags = Array.isArray(product?.tags) ? product.tags.map(String) : [];
+    return { card, title, price, tags, tagText: tags.join(' ') };
   }
 
   function ensureControls() {
@@ -45,12 +53,13 @@
     const sort = $('#catalogSort')?.value || 'featured';
     const items = $$('.product-card', grid).map(cardData);
 
-    items.forEach(({card,title,badge}) => {
-      const haystack = `${title} ${badge}`.toLowerCase();
+    items.forEach(({card,title,tagText}) => {
+      const haystack = `${title} ${tagText}`.toLowerCase();
       card.hidden = Boolean(query && !haystack.includes(query));
     });
 
     const visible = items.filter(x => !x.card.hidden);
+    if (sort === 'featured') visible.sort((a,b) => Number(/featured/i.test(b.tagText)) - Number(/featured/i.test(a.tagText)));
     if (sort === 'name') visible.sort((a,b) => a.title.localeCompare(b.title));
     if (sort === 'price-low') visible.sort((a,b) => a.price - b.price);
     if (sort === 'price-high') visible.sort((a,b) => b.price - a.price);
@@ -77,8 +86,8 @@
     if (!cards.length) return;
 
     const info = cards.map(cardData);
-    const featured = info.filter(x => /featured/i.test(x.badge)).map(x => x.card);
-    const best = info.filter(x => /best\s*seller/i.test(x.badge)).map(x => x.card);
+    const featured = info.filter(x => x.tags.some(tag => /^featured$/i.test(tag.trim()))).map(x => x.card);
+    const best = info.filter(x => x.tags.some(tag => /^best\s*seller$/i.test(tag.trim()))).map(x => x.card);
 
     const featuredCards = (featured.length ? featured : cards).slice(0, 4);
     const bestCards = (best.length ? best : cards.slice().reverse()).slice(0, 4);
