@@ -16,18 +16,23 @@ const source = new Client({ connectionString: sourceUrl, ssl });
 const target = new Client({ connectionString: targetUrl, ssl });
 
 const tables = [
-  { name: 'accounting_expenses', conflict: ['id'] },
-  { name: 'accounting_settings', conflict: ['setting_key'] },
-  { name: 'admin_media', conflict: ['id'] },
-  { name: 'analytics_events', conflict: ['id'] },
-  { name: 'collection_settings', conflict: ['collection_id'] },
-  { name: 'product_collection_assignments', conflict: ['product_id'] },
-  { name: 'product_merchandising', conflict: ['product_id'] },
-  { name: 'store_settings', conflict: ['setting_key'] }
+  { name: 'accounting_expenses', conflict: ['id'], json: [] },
+  { name: 'accounting_settings', conflict: ['setting_key'], json: ['setting_value'] },
+  { name: 'admin_media', conflict: ['id'], json: [] },
+  { name: 'analytics_events', conflict: ['id'], json: ['metadata'] },
+  { name: 'collection_settings', conflict: ['collection_id'], json: [] },
+  { name: 'product_collection_assignments', conflict: ['product_id'], json: ['collection_ids'] },
+  { name: 'product_merchandising', conflict: ['product_id'], json: ['mockup_urls'] },
+  { name: 'store_settings', conflict: ['setting_key'], json: ['setting_value'] }
 ];
 
 function quoteIdent(name) {
   return '"' + String(name).replaceAll('"', '""') + '"';
+}
+
+function encodeValue(table, column, value) {
+  if (value == null) return value;
+  return table.json.includes(column) ? JSON.stringify(value) : value;
 }
 
 async function copyTable(table) {
@@ -35,7 +40,7 @@ async function copyTable(table) {
   if (!rows.length) return 0;
   const columns = Object.keys(rows[0]);
   for (const row of rows) {
-    const values = columns.map(c => row[c]);
+    const values = columns.map(c => encodeValue(table, c, row[c]));
     const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
     const updates = columns
       .filter(c => !table.conflict.includes(c))
@@ -67,9 +72,9 @@ try {
     for (const event of legacyEvents.rows) {
       await target.query(
         `INSERT INTO core_analytics_events (business_id,site_id,session_id,visitor_id,event_name,path,referrer,properties,occurred_at)
-         VALUES ($1,$2,$3,NULL,$4,NULL,NULL,$5,$6)`,
+         VALUES ($1,$2,$3,NULL,$4,NULL,NULL,$5::jsonb,$6)`,
         [business.rows[0].id, site.rows[0].id, event.session_id, event.event_type,
-         { ...(event.metadata || {}), legacy_product_id: event.product_id, legacy_event_id: event.id }, event.created_at]
+         JSON.stringify({ ...(event.metadata || {}), legacy_product_id: event.product_id, legacy_event_id: event.id }), event.created_at]
       );
     }
 
@@ -77,10 +82,10 @@ try {
     for (const expense of expenses.rows) {
       await target.query(
         `INSERT INTO expenses (business_id,vendor,category,description,amount,currency,expense_date,metadata,created_at,updated_at)
-         VALUES ($1,$2,$3,$4,$5,'USD',$6,$7,$8,$8)`,
+         VALUES ($1,$2,$3,$4,$5,'USD',$6,$7::jsonb,$8,$8)`,
         [business.rows[0].id, expense.vendor, expense.category, expense.description,
          Number(expense.amount_cents || 0) / 100, expense.expense_date,
-         { legacy_expense_id: expense.id }, expense.created_at]
+         JSON.stringify({ legacy_expense_id: expense.id }), expense.created_at]
       );
     }
   }
