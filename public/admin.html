@@ -12,7 +12,7 @@
     <section id="loginView" class="login-card">
       <p class="eyebrow">WILD SAGE APPAREL</p>
       <h1>Admin</h1>
-      <p class="muted">Manage featured products, best sellers, and custom mockups.</p>
+      <p class="muted">Your Wild Sage control room.</p>
       <form id="loginForm">
         <label for="adminPassword">Password</label>
         <input id="adminPassword" type="password" autocomplete="current-password" required>
@@ -24,25 +24,70 @@
 
     <section id="dashboardView" hidden>
       <header class="admin-header">
-        <div>
-          <p class="eyebrow">WILD SAGE APPAREL</p>
-          <h1>Merchandising Dashboard</h1>
-          <p class="muted">Control what the storefront highlights without changing Printify tags.</p>
-        </div>
-        <div class="header-actions">
-          <a href="/">← Back to Store</a>
-          <button id="logoutButton" type="button" class="ghost">Log Out</button>
-        </div>
+        <div><p class="eyebrow">WILD SAGE APPAREL</p><h1>Store Dashboard</h1><p class="muted">Merchandising, orders, analytics, content, and settings.</p></div>
+        <div class="header-actions"><a href="/">← Back to Store</a><button id="logoutButton" type="button" class="ghost">Log Out</button></div>
       </header>
 
       <div id="setupNotice" class="setup-notice" hidden></div>
 
-      <div class="toolbar">
-        <input id="productSearch" type="search" placeholder="Search products">
-        <span id="productCount" class="muted"></span>
-      </div>
+      <nav class="admin-tabs" aria-label="Admin sections">
+        <button class="admin-tab active" data-tab="overview">Overview</button>
+        <button class="admin-tab" data-tab="products">Products</button>
+        <button class="admin-tab" data-tab="orders">Orders</button>
+        <button class="admin-tab" data-tab="analytics">Analytics</button>
+        <button class="admin-tab" data-tab="homepage">Homepage</button>
+        <button class="admin-tab" data-tab="collections">Collections</button>
+        <button class="admin-tab" data-tab="settings">Settings</button>
+      </nav>
 
-      <div id="productsGrid" class="products-grid"></div>
+      <section class="admin-panel active" data-panel="overview">
+        <div class="panel-heading"><div><p class="eyebrow">AT A GLANCE</p><h2>Overview</h2></div><button id="refreshOverview" class="ghost">Refresh</button></div>
+        <div id="overviewCards" class="metric-grid"></div>
+        <div class="split-grid"><div class="admin-card"><h3>30-day activity</h3><div id="overviewActivity"></div></div><div class="admin-card"><h3>Store status</h3><div id="storeStatus"></div></div></div>
+      </section>
+
+      <section class="admin-panel" data-panel="products">
+        <div class="panel-heading"><div><p class="eyebrow">MERCHANDISING</p><h2>Products</h2></div></div>
+        <div class="toolbar"><input id="productSearch" type="search" placeholder="Search products"><span id="productCount" class="muted"></span></div>
+        <div id="productsGrid" class="products-grid"></div>
+      </section>
+
+      <section class="admin-panel" data-panel="orders">
+        <div class="panel-heading"><div><p class="eyebrow">STRIPE</p><h2>Orders</h2></div><button id="refreshOrders" class="ghost">Refresh</button></div>
+        <div id="ordersNotice" class="setup-notice" hidden></div><div id="ordersList" class="orders-list"></div>
+      </section>
+
+      <section class="admin-panel" data-panel="analytics">
+        <div class="panel-heading"><div><p class="eyebrow">STOREFRONT</p><h2>Analytics</h2></div><button id="refreshAnalytics" class="ghost">Refresh</button></div>
+        <div class="analytics-window"><button class="window-btn active" data-window="24h">24 hours</button><button class="window-btn" data-window="7d">7 days</button><button class="window-btn" data-window="30d">30 days</button><button class="window-btn" data-window="all">Lifetime</button></div>
+        <div id="analyticsCards" class="metric-grid"></div>
+        <div class="admin-card"><h3>Top viewed products · 30 days</h3><div id="topProducts"></div></div>
+      </section>
+
+      <section class="admin-panel" data-panel="homepage">
+        <div class="panel-heading"><div><p class="eyebrow">CONTENT</p><h2>Homepage</h2></div><button id="saveHomepage">Save Homepage</button></div>
+        <div class="form-grid">
+          <label>Announcement left<input id="announcementLeft"></label><label>Announcement right<input id="announcementRight"></label>
+          <label>Hero eyebrow<input id="heroEyebrow"></label><label>Hero title<textarea id="heroTitle" rows="3"></textarea></label>
+          <label class="full">Hero subheading<textarea id="heroKicker" rows="3"></textarea></label>
+          <label>About eyebrow<input id="aboutEyebrow"></label><label>About title<input id="aboutTitle"></label>
+          <label class="full">About text<textarea id="aboutText" rows="4"></textarea></label>
+          <label class="toggle-line"><input id="featuredEnabled" type="checkbox"> Show Featured section</label>
+          <label class="toggle-line"><input id="bestSellersEnabled" type="checkbox"> Show Best Sellers section</label>
+        </div><p id="homepageMessage" class="message"></p>
+      </section>
+
+      <section class="admin-panel" data-panel="collections">
+        <div class="panel-heading"><div><p class="eyebrow">SHOP NAVIGATION</p><h2>Collections</h2></div><button id="saveCollections">Save Collections</button></div>
+        <p class="muted">Rename, reorder, or hide the storefront filter buttons without changing Printify.</p>
+        <div id="collectionsList" class="collections-list"></div><p id="collectionsMessage" class="message"></p>
+      </section>
+
+      <section class="admin-panel" data-panel="settings">
+        <div class="panel-heading"><div><p class="eyebrow">STORE</p><h2>Settings</h2></div><button id="saveSettings">Save Settings</button></div>
+        <div class="form-grid"><label>Contact email<input id="contactEmail" type="email"></label><div class="admin-card compact"><strong>Business ID</strong><span id="businessId"></span></div><div class="admin-card compact"><strong>Parent company</strong><span id="parentCompanyId"></span></div><div class="admin-card compact"><strong>Database</strong><span id="databaseStatus"></span></div><div class="admin-card compact"><strong>Stripe</strong><span id="stripeStatus"></span></div></div>
+        <p id="settingsMessage" class="message"></p>
+      </section>
     </section>
   </main>
   <script src="/admin-client.js" defer></script>
