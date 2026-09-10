@@ -6,9 +6,19 @@ const API_BASE='https://api.printify.com/v1';let shopId=null;
 
 async function printify(path){const token=process.env.PRINTIFY_API_TOKEN;if(!token)throw new Error('Printify not configured');const r=await fetch(`${API_BASE}${path}`,{headers:{Authorization:`Bearer ${token}`,'User-Agent':'WildSageApparel/0.1'}});if(!r.ok)throw new Error(`Printify ${r.status}`);return r.json();}
 async function getShop(){if(shopId)return shopId;const s=await printify('/shops.json'),list=Array.isArray(s)?s:(s.data||[]),found=list.find(x=>String(x.title||x.name||'').trim().toLowerCase()==='wild sage apparel')||list[0];if(!found)throw new Error('No Printify shop');shopId=String(found.id);return shopId;}
-async function fulfillment(sessionId){if(String(sessionId).startsWith('cs_test_'))return{test:true,status:'test order — not sent to Printify',tracking:[]};try{const id=await getShop(),data=await printify(`/shops/${id}/orders.json?limit=100`),orders=Array.isArray(data)?data:(data.data||[]),o=orders.find(x=>String(x.external_id||'')===String(sessionId));if(!o)return null;const shipments=Array.isArray(o.shipments)?o.shipments:[];return{id:o.id,status:o.status||'',tracking:shipments.map(s=>({carrier:s.carrier||'',number:s.number||s.tracking_number||'',url:s.url||s.tracking_url||'',deliveredAt:s.delivered_at||null})).filter(x=>x.number||x.url)};}catch{return null;}}
+async function fulfillment(sessionId){if(String(sessionId).startsWith('cs_test_'))return{test:true,status:'test order — not sent to Printify',tracking:[]};if(String(process.env.LIVE_FULFILLMENT_DRY_RUN||'').toLowerCase()==='true')return{dryRun:true,status:'payment received — fulfillment test mode',tracking:[]};try{const id=await getShop(),data=await printify(`/shops/${id}/orders.json?limit=100`),orders=Array.isArray(data)?data:(data.data||[]),o=orders.find(x=>String(x.external_id||'')===String(sessionId));if(!o)return null;const shipments=Array.isArray(o.shipments)?o.shipments:[];return{id:o.id,status:o.status||'',tracking:shipments.map(s=>({carrier:s.carrier||'',number:s.number||s.tracking_number||'',url:s.url||s.tracking_url||'',deliveredAt:s.delivered_at||null})).filter(x=>x.number||x.url)};}catch{return null;}}
 function cleanEmail(v){return String(v||'').trim().toLowerCase().slice(0,254);}
 function safeSession(s){return{id:s.id,isTest:String(s.id).startsWith('cs_test_'),created:new Date(s.created*1000).toISOString(),paymentStatus:s.payment_status||'',status:s.status||'',currency:String(s.currency||'usd').toUpperCase(),total:Number(s.amount_total||0)/100,items:(s.line_items?.data||[]).map(i=>({description:i.description||'',quantity:i.quantity||0,total:Number(i.amount_total||0)/100}))};}
+
+async function repairFromStripe(client,raw){
+  if(!client)return null;
+  const sessions=await client.checkout.sessions.list({limit:100});
+  for(const s of sessions.data){
+    const friendly=await getFriendlyOrderNumber(s.id);
+    if(String(friendly).toUpperCase()===raw.toUpperCase())return s.id;
+  }
+  return null;
+}
 
 async function resolveEnteredOrder(entered){
   const raw=String(entered||'').trim();
@@ -16,14 +26,9 @@ async function resolveEnteredOrder(entered){
   let sessionId=await resolveFriendlyOrderNumber(raw);
   if(sessionId)return sessionId;
 
-  // Repair/fallback for older test orders whose friendly-number mapping was not persisted yet.
-  if(/^TEST-WS-\d+$/i.test(raw)&&testStripe){
-    const sessions=await testStripe.checkout.sessions.list({limit:100});
-    for(const s of sessions.data){
-      const friendly=await getFriendlyOrderNumber(s.id);
-      if(String(friendly).toUpperCase()===raw.toUpperCase())return s.id;
-    }
-  }
+  // Repair/fallback for friendly order numbers whose mapping was not persisted or was created after checkout.
+  if(/^TEST-WS-\d+$/i.test(raw))return repairFromStripe(testStripe,raw);
+  if(/^WS-\d+$/i.test(raw))return repairFromStripe(stripe,raw);
   return null;
 }
 
