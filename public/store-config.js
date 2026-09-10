@@ -7,7 +7,8 @@
       if(!res.ok)return;
       const s=data.settings||{};
       setText('.announcement span:first-child',s.announcementLeft);
-      setText('.announcement-right',s.announcementRight);
+      const announcementRight=$('.announcement-right');
+      if(announcementRight) announcementRight.textContent='SHIPPING CALCULATED SECURELY AT CHECKOUT';
       setText('.hero-copy .eyebrow',s.heroEyebrow);
       const title=$('.hero-copy h1'); if(title&&s.heroTitle)title.innerHTML=String(s.heroTitle).split('\n').map(x=>x.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))).join('<br>');
       const kicker=$('.hero-kicker'); if(kicker&&s.heroKicker)kicker.innerHTML=String(s.heroKicker).split('\n').map(x=>x.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))).join('<br>');
