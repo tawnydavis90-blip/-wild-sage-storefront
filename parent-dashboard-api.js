@@ -36,6 +36,8 @@ async function companySummary(){
     )
     SELECT b.id,b.slug,b.display_name,b.business_type,b.status,
            COUNT(DISTINCT s.id)::int AS site_count,
+           MAX(s.domain) FILTER (WHERE s.domain IS NOT NULL) AS live_url,
+           MAX(s.dashboard_url) FILTER (WHERE s.dashboard_url IS NOT NULL) AS dashboard_url,
            COALESCE(o.order_count,0)::int AS order_count,
            COALESCE(o.revenue,0)::numeric AS revenue,
            COALESCE(e.expenses,0)::numeric AS expenses,
@@ -52,7 +54,8 @@ async function companySummary(){
   `);
   return q.rows.map(r=>({
     id:r.id,slug:r.slug,name:r.display_name,type:r.business_type,status:r.status,
-    sites:r.site_count,orders:r.order_count,revenue:Number(r.revenue),expenses:Number(r.expenses),net:Number(r.net),
+    sites:r.site_count,liveUrl:r.live_url||null,dashboardUrl:r.dashboard_url||null,
+    orders:r.order_count,revenue:Number(r.revenue),expenses:Number(r.expenses),net:Number(r.net),
     events30d:r.events_30d,sessions30d:r.sessions_30d
   }));
 }
@@ -81,7 +84,7 @@ export function registerParentDashboardRoutes(app){
       if(!business.rowCount) return res.status(404).json({error:'Business not found'});
       const id=business.rows[0].id;
       const [sites,orders,expenses,events]=await Promise.all([
-        db().query('SELECT slug,name,domain,platform,status FROM sites WHERE business_id=$1 ORDER BY name',[id]),
+        db().query('SELECT slug,name,domain,dashboard_url,platform,status FROM sites WHERE business_id=$1 ORDER BY name',[id]),
         db().query('SELECT status,COUNT(*)::int AS count,COALESCE(SUM(total),0)::numeric AS total FROM orders WHERE business_id=$1 GROUP BY status ORDER BY status',[id]),
         db().query("SELECT category,COALESCE(SUM(amount),0)::numeric AS amount FROM expenses WHERE business_id=$1 AND expense_date>=CURRENT_DATE-INTERVAL '30 days' GROUP BY category ORDER BY amount DESC",[id]),
         db().query("SELECT event_name,COUNT(*)::int AS count FROM core_analytics_events WHERE business_id=$1 AND occurred_at>=NOW()-INTERVAL '30 days' GROUP BY event_name ORDER BY count DESC",[id])
