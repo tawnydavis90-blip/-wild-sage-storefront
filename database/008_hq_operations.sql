@@ -28,6 +28,15 @@ CREATE TABLE IF NOT EXISTS master_customer_businesses (
   PRIMARY KEY(master_customer_id,business_id)
 );
 
+CREATE TABLE IF NOT EXISTS master_customer_orders (
+  master_customer_id uuid NOT NULL REFERENCES master_customers(id) ON DELETE CASCADE,
+  order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  business_id uuid NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  linked_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY(master_customer_id,order_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_master_customer_order ON master_customer_orders(order_id);
+
 CREATE TABLE IF NOT EXISTS order_activity (
   id bigserial PRIMARY KEY,
   order_id uuid REFERENCES orders(id) ON DELETE CASCADE,
