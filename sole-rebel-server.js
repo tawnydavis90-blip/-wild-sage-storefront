@@ -22,6 +22,23 @@ function validSession(req){const token=cookies(req).sole_rebel_admin;if(!token)r
 function requireAdmin(req,res,next){if(validSession(req))return next();res.status(401).json({error:'Unauthorized'});}
 async function ids(){const b=await pool.query("SELECT id FROM businesses WHERE slug='sole-rebel'");if(!b.rows[0])throw new Error('Sole Rebel business record is missing');const s=await pool.query("SELECT id FROM sites WHERE slug='sole-rebel-storefront' LIMIT 1");return{businessId:b.rows[0].id,siteId:s.rows[0]?.id||null};}
 
+async function startupSmokeTest(){
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const b=await client.query("SELECT id FROM businesses WHERE slug='sole-rebel'");
+    if(!b.rows[0])throw new Error('Sole Rebel business record is missing');
+    const s=await client.query("SELECT id FROM sites WHERE slug='sole-rebel-storefront' LIMIT 1");
+    const testId=`SR-SMOKE-${Date.now()}`;
+    await client.query(`INSERT INTO orders (business_id,site_id,external_order_id,friendly_order_number,status,currency,subtotal,shipping,total,fulfillment_provider,fulfillment_status,ordered_at,metadata) VALUES ($1,$2,$3,$3,'pending','USD',25,6,31,'smoke-test','rolled back',NOW(),$4::jsonb)`,[b.rows[0].id,s.rows[0]?.id||null,testId,JSON.stringify({source:'sole-rebel-startup-smoke-test'})]);
+    await client.query('ROLLBACK');
+    console.log(`Sole Rebel database smoke test passed. business=${Boolean(b.rows[0])} site=${Boolean(s.rows[0])} adminPassword=${Boolean(ADMIN_PASSWORD)} sessionSecret=${Boolean(process.env.SOLE_REBEL_SESSION_SECRET)}`);
+  }catch(err){
+    try{await client.query('ROLLBACK');}catch{}
+    console.error('Sole Rebel database smoke test FAILED:',err.message);
+  }finally{client.release();}
+}
+
 app.get('/api/health',async(_req,res)=>{try{await pool.query('SELECT 1');res.json({ok:true,service:'Sole Rebel',database:'Sage & Ember Core'});}catch(e){res.status(500).json({ok:false,error:e.message});}});
 app.post('/api/orders',async(req,res)=>{try{const color=String(req.body?.color||'').toLowerCase();const days=Math.max(1,Math.min(14,Number(req.body?.daysWorn||1)));const customer=String(req.body?.customer||'').trim();const email=String(req.body?.email||'').trim();if(!['black','white','gray'].includes(color))return res.status(400).json({error:'Choose black, white, or gray.'});if(!customer)return res.status(400).json({error:'Enter your name.'});const {businessId,siteId}=await ids();const subtotal=days*25,shipping=6,total=subtotal+shipping,externalId=`SR-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;const q=await pool.query(`INSERT INTO orders (business_id,site_id,external_order_id,friendly_order_number,status,currency,subtotal,shipping,total,fulfillment_provider,fulfillment_status,ordered_at,metadata) VALUES ($1,$2,$3,$3,'pending','USD',$4,$5,$6,'manual','awaiting payment',NOW(),$7::jsonb) RETURNING id,external_order_id,total,status,ordered_at`,[businessId,siteId,externalId,subtotal,shipping,total,JSON.stringify({source:'sole-rebel-render',customer,email,color,daysWorn:days,pricePerDay:25,shippingFlat:6})]);res.status(201).json({order:q.rows[0],paymentNote:'Payment is handled separately. Order remains pending until marked paid.'});}catch(e){res.status(500).json({error:e.message});}});
 
@@ -33,4 +50,7 @@ app.patch('/api/admin/orders/:id',requireAdmin,async(req,res)=>{try{const status
 
 app.get('/dashboard',(_req,res)=>res.sendFile(path.join(__dirname,'public','sole-rebel','dashboard.html')));
 app.get('/*splat',(_req,res)=>res.sendFile(path.join(__dirname,'public','sole-rebel','index.html')));
-app.listen(PORT,()=>console.log(`Sole Rebel running at http://localhost:${PORT}`));
+
+startupSmokeTest().finally(()=>{
+  app.listen(PORT,()=>console.log(`Sole Rebel running at http://localhost:${PORT}`));
+});
