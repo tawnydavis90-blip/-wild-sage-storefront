@@ -17,6 +17,7 @@ const CASHAPP_URL=String(process.env.SOLE_REBEL_CASHAPP_URL||'');
 const MAX_PHOTO_BYTES=8*1024*1024;
 const PHOTO_TYPES=new Set(['image/jpeg','image/png','image/webp']);
 const PHOTO_SLOTS=new Set(['hero','small1','small2','small3']);
+const PHOTO_POSITIONS=new Set(['top','center','bottom']);
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname,'public','sole-rebel')));
@@ -36,20 +37,22 @@ async function ensurePhotoSchema(){
     mime_type TEXT NOT NULL,
     media_bytes BYTEA NOT NULL,
     size_bytes INTEGER NOT NULL,
+    object_position TEXT NOT NULL DEFAULT 'center',
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  await pool.query(`ALTER TABLE sole_rebel_storefront_media ADD COLUMN IF NOT EXISTS object_position TEXT NOT NULL DEFAULT 'center'`);
 }
 
 async function photoConfig(){
   await ensurePhotoSchema();
-  const {rows}=await pool.query('SELECT slot,filename,mime_type,size_bytes,updated_at FROM sole_rebel_storefront_media ORDER BY slot');
+  const {rows}=await pool.query('SELECT slot,filename,mime_type,size_bytes,object_position,updated_at FROM sole_rebel_storefront_media ORDER BY slot');
   const slots={
-    hero:{slot:'hero',label:'Main hero',url:'/hero.jpg',custom:false},
-    small1:{slot:'small1',label:'Small photo 1',url:null,custom:false},
-    small2:{slot:'small2',label:'Small photo 2',url:null,custom:false},
-    small3:{slot:'small3',label:'Small photo 3',url:null,custom:false}
+    hero:{slot:'hero',label:'Main hero',url:'/hero.jpg',custom:false,position:'center'},
+    small1:{slot:'small1',label:'Small photo 1',url:null,custom:false,position:'center'},
+    small2:{slot:'small2',label:'Small photo 2',url:null,custom:false,position:'center'},
+    small3:{slot:'small3',label:'Small photo 3',url:null,custom:false,position:'center'}
   };
-  for(const r of rows)slots[r.slot]={...slots[r.slot],filename:r.filename,mimeType:r.mime_type,size:r.size_bytes,updatedAt:r.updated_at,url:`/api/storefront-photo/${r.slot}?v=${new Date(r.updated_at).getTime()}`,custom:true};
+  for(const r of rows)slots[r.slot]={...slots[r.slot],filename:r.filename,mimeType:r.mime_type,size:r.size_bytes,position:PHOTO_POSITIONS.has(r.object_position)?r.object_position:'center',updatedAt:r.updated_at,url:`/api/storefront-photo/${r.slot}?v=${new Date(r.updated_at).getTime()}`,custom:true};
   return slots;
 }
 
@@ -72,6 +75,7 @@ app.post('/api/admin/logout',(_req,res)=>{res.setHeader('Set-Cookie','sole_rebel
 
 app.get('/api/admin/storefront-media',requireAdmin,async(_req,res)=>{try{res.json({slots:await photoConfig()});}catch(e){res.status(500).json({error:e.message});}});
 app.post('/api/admin/storefront-media/:slot',requireAdmin,express.raw({type:'application/octet-stream',limit:'8mb'}),async(req,res)=>{try{const slot=String(req.params.slot||'');if(!PHOTO_SLOTS.has(slot))return res.status(400).json({error:'Invalid photo slot.'});const mime=String(req.headers['x-mime-type']||'').toLowerCase().trim();if(!PHOTO_TYPES.has(mime))return res.status(400).json({error:'Upload a JPG, PNG, or WebP image.'});if(!Buffer.isBuffer(req.body)||!req.body.length)return res.status(400).json({error:'The uploaded image was empty.'});if(req.body.length>MAX_PHOTO_BYTES)return res.status(413).json({error:'Image is too large. Maximum size is 8 MB.'});await ensurePhotoSchema();const filename=safeName(req.headers['x-file-name']);await pool.query(`INSERT INTO sole_rebel_storefront_media(slot,filename,mime_type,media_bytes,size_bytes,updated_at) VALUES($1,$2,$3,$4,$5,NOW()) ON CONFLICT(slot) DO UPDATE SET filename=EXCLUDED.filename,mime_type=EXCLUDED.mime_type,media_bytes=EXCLUDED.media_bytes,size_bytes=EXCLUDED.size_bytes,updated_at=NOW()`,[slot,filename,mime,req.body,req.body.length]);res.json({ok:true,slot,url:`/api/storefront-photo/${slot}?v=${Date.now()}`});}catch(e){console.error('Sole Rebel photo upload error:',e);res.status(500).json({error:'Unable to save photo.'});}});
+app.patch('/api/admin/storefront-media/:slot/position',requireAdmin,async(req,res)=>{try{const slot=String(req.params.slot||''),position=String(req.body?.position||'').toLowerCase();if(!PHOTO_SLOTS.has(slot))return res.status(400).json({error:'Invalid photo slot.'});if(!PHOTO_POSITIONS.has(position))return res.status(400).json({error:'Position must be top, center, or bottom.'});await ensurePhotoSchema();const q=await pool.query('UPDATE sole_rebel_storefront_media SET object_position=$2,updated_at=NOW() WHERE slot=$1 RETURNING slot,object_position',[slot,position]);if(!q.rows[0])return res.status(404).json({error:'Upload a photo to this slot before changing its position.'});res.json({ok:true,slot,position:q.rows[0].object_position});}catch(e){res.status(500).json({error:e.message});}});
 app.delete('/api/admin/storefront-media/:slot',requireAdmin,async(req,res)=>{try{const slot=String(req.params.slot||'');if(!PHOTO_SLOTS.has(slot))return res.status(400).json({error:'Invalid photo slot.'});await ensurePhotoSchema();await pool.query('DELETE FROM sole_rebel_storefront_media WHERE slot=$1',[slot]);res.json({ok:true});}catch(e){res.status(500).json({error:e.message});}});
 
 app.get('/api/admin/dashboard',requireAdmin,async(_req,res)=>{try{const {businessId}=await ids();const stats=await pool.query(`SELECT COUNT(*) FILTER (WHERE ordered_at>=NOW()-INTERVAL '24 hours')::int AS last24h,COUNT(*) FILTER (WHERE ordered_at>=NOW()-INTERVAL '7 days')::int AS last7d,COUNT(*)::int AS lifetime,COUNT(*) FILTER (WHERE status='paid')::int AS paid,COUNT(*) FILTER (WHERE status='payment_reported')::int AS payment_reported,COUNT(*) FILTER (WHERE status NOT IN ('paid','cancelled','refunded'))::int AS unpaid,COALESCE(SUM(total),0)::numeric AS order_value,COALESCE(SUM(total) FILTER (WHERE status='paid'),0)::numeric AS paid_revenue FROM orders WHERE business_id=$1`,[businessId]);const orders=await pool.query(`SELECT id,external_order_id,friendly_order_number,status,total,ordered_at,fulfillment_status,metadata FROM orders WHERE business_id=$1 ORDER BY ordered_at DESC LIMIT 200`,[businessId]);res.json({stats:{...stats.rows[0],order_value:Number(stats.rows[0].order_value),paid_revenue:Number(stats.rows[0].paid_revenue)},orders:orders.rows.map(o=>({...o,total:Number(o.total)}))});}catch(e){res.status(500).json({error:e.message});}});
