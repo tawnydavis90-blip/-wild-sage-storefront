@@ -45,7 +45,15 @@
     return data;
   }
 
-  function enhanceInput(input,index){
+  function labelFor(input){
+    if(input.classList.contains('main-front-url')) return 'Upload main front';
+    if(input.classList.contains('main-back-url')) return 'Upload main back';
+    if(input.classList.contains('color-front-url')) return 'Upload color front';
+    if(input.classList.contains('color-back-url')) return 'Upload color back';
+    return 'Upload image';
+  }
+
+  function enhanceInput(input){
     if(input.dataset.directUploadReady) return;
     input.dataset.directUploadReady='true';
     const wrap=document.createElement('div');
@@ -53,8 +61,7 @@
     const picker=document.createElement('input');
     picker.type='file'; picker.accept='image/*'; picker.className='media-file-picker';
     const button=document.createElement('button');
-    button.type='button'; button.className='media-upload-button';
-    button.textContent=index===0?'Upload primary image':'Upload image';
+    button.type='button'; button.className='media-upload-button'; button.textContent=labelFor(input);
     const status=document.createElement('span'); status.className='media-upload-status';
     wrap.append(button,picker,status);
     input.insertAdjacentElement('afterend',wrap);
@@ -68,17 +75,18 @@
         input.dispatchEvent(new Event('input',{bubbles:true}));
         const card=input.closest('.product-admin-card');
         const preview=$('img',card);
-        if(preview) preview.src=result.url;
-        status.textContent='Uploaded. Saving product…';
+        if(preview && input.classList.contains('main-front-url')) preview.src=result.url;
+        status.textContent='Uploaded — saving…';
         const save=$('.save-product',card);
-        if(save){save.click();setTimeout(()=>{status.textContent='Uploaded & saved';},450);} else status.textContent='Uploaded — tap Save';
+        if(save){save.click();setTimeout(()=>{status.textContent='Uploaded & saved';},500);} else status.textContent='Uploaded — tap Save';
       }catch(err){status.textContent=err.message;}
       finally{button.disabled=false;picker.value='';}
     });
   }
 
   function enhanceCards(){
-    $$('.product-admin-card .mockups').forEach(group=>{$$('.mockup-url',group).forEach((input,index)=>enhanceInput(input,index));});
+    $$('.product-admin-card .mockup-manager input.main-front-url, .product-admin-card .mockup-manager input.main-back-url, .product-admin-card .mockup-manager input.color-front-url, .product-admin-card .mockup-manager input.color-back-url').forEach(enhanceInput);
+    $$('.product-admin-card .mockups input.mockup-url').forEach(enhanceInput);
   }
 
   function loadMediaLibrary(){
