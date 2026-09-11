@@ -10,11 +10,11 @@ async function printify(pathname,options={}){
   if(!token)throw new Error('Printify is not configured.');
   const r=await fetch(`${API_BASE}${pathname}`,{...options,headers:{Authorization:`Bearer ${token}`,'User-Agent':'WildSageApparel/0.1','Content-Type':'application/json;charset=utf-8',...(options.headers||{})}});
   const text=await r.text();let data;try{data=text?JSON.parse(text):null}catch{data=text}
-  if(!r.ok){const e=new Error(data?.message||data?.error||`Printify ${r.status}`);e.detail=data;throw e;}return data;
+  if(!r.ok){const reason=data?.errors?.reason||data?.message||data?.error||`Printify ${r.status}`;const e=new Error(reason);e.detail=data;throw e;}return data;
 }
 async function getShopId(){if(shopId)return shopId;const d=await printify('/shops.json'),list=Array.isArray(d)?d:(d?.data||[]),s=list.find(x=>String(x.title||x.name||'').trim().toLowerCase()==='wild sage apparel')||list[0];if(!s)throw new Error('Wild Sage Apparel Printify shop was not found.');return shopId=String(s.id);}
 function cleanAddress(a={}){return{first_name:String(a.first_name||'Shipping').trim(),last_name:String(a.last_name||'Customer').trim(),email:String(a.email||'shipping@wildsageapparel.com').trim(),phone:String(a.phone||'').trim(),country:'US',region:String(a.region||'').trim().toUpperCase(),address1:String(a.address1||'').trim(),address2:String(a.address2||'').trim(),city:String(a.city||'').trim(),zip:String(a.zip||'').trim()};}
-function validateAddress(a){if(!a.address1||!a.city||!a.region||!a.zip)throw new Error('Enter street address, city, state, and ZIP code to calculate Printify shipping.');}
+function validateAddress(a){if(!a.phone)throw new Error('Enter a phone number to calculate Printify shipping.');if(!a.address1||!a.city||!a.region||!a.zip)throw new Error('Enter street address, city, state, and ZIP code to calculate Printify shipping.');}
 function normalizeItems(items){if(!Array.isArray(items)||!items.length)throw new Error('Your bag is empty.');return items.map(x=>({product_id:String(x.productId||''),variant_id:Number(x.variantId),quantity:Math.max(1,Math.min(10,Number(x.quantity||1)))}));}
 async function shippingQuote(items,address){const sid=await getShopId(),addr=cleanAddress(address);validateAddress(addr);const line_items=normalizeItems(items);const q=await printify(`/shops/${sid}/orders/shipping.json`,{method:'POST',body:JSON.stringify({line_items,address_to:addr})});const standard=Number(q?.standard);if(!Number.isFinite(standard))throw new Error('Printify did not return a standard shipping rate for this order.');return{amount:standard,currency:'usd',method:'standard',all:q,address:addr};}
 
