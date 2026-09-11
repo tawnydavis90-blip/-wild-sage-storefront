@@ -9,7 +9,7 @@ const {Pool}=pg;
 const app=express();
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 const PORT=Number(process.env.PORT||3000);
-const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.NODE_ENV==='production'?{rejectUnauthorized:false}:undefined});
+const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.NODE_ENV==='production'?{rejectUnauthorized:false}:undefined,connectionTimeoutMillis:5000});
 const ADMIN_PASSWORD=String(process.env.SOLE_REBEL_ADMIN_PASSWORD||'');
 const SESSION_SECRET=String(process.env.SOLE_REBEL_SESSION_SECRET||ADMIN_PASSWORD||'disabled');
 
@@ -23,8 +23,9 @@ function requireAdmin(req,res,next){if(validSession(req))return next();res.statu
 async function ids(){const b=await pool.query("SELECT id FROM businesses WHERE slug='sole-rebel'");if(!b.rows[0])throw new Error('Sole Rebel business record is missing');const s=await pool.query("SELECT id FROM sites WHERE slug='sole-rebel-storefront' LIMIT 1");return{businessId:b.rows[0].id,siteId:s.rows[0]?.id||null};}
 
 async function startupSmokeTest(){
-  const client=await pool.connect();
+  let client;
   try{
+    client=await pool.connect();
     await client.query('BEGIN');
     const b=await client.query("SELECT id FROM businesses WHERE slug='sole-rebel'");
     if(!b.rows[0])throw new Error('Sole Rebel business record is missing');
@@ -34,9 +35,9 @@ async function startupSmokeTest(){
     await client.query('ROLLBACK');
     console.log(`Sole Rebel database smoke test passed. business=${Boolean(b.rows[0])} site=${Boolean(s.rows[0])} adminPassword=${Boolean(ADMIN_PASSWORD)} sessionSecret=${Boolean(process.env.SOLE_REBEL_SESSION_SECRET)}`);
   }catch(err){
-    try{await client.query('ROLLBACK');}catch{}
+    if(client){try{await client.query('ROLLBACK');}catch{}}
     console.error('Sole Rebel database smoke test FAILED:',err.message);
-  }finally{client.release();}
+  }finally{if(client)client.release();}
 }
 
 app.get('/api/health',async(_req,res)=>{try{await pool.query('SELECT 1');res.json({ok:true,service:'Sole Rebel',database:'Sage & Ember Core'});}catch(e){res.status(500).json({ok:false,error:e.message});}});
