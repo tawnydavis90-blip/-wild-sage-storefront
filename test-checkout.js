@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import Stripe from 'stripe';
+import { registerShippingCheckoutRoutes } from './shipping-checkout.js';
 
 const COOKIE_NAME='wild_sage_admin';
 const API_BASE='https://api.printify.com/v1';
@@ -15,6 +16,7 @@ async function printify(pathname){const token=process.env.PRINTIFY_API_TOKEN;if(
 async function getShopId(){if(shopId)return shopId;const shops=await printify('/shops.json'),list=Array.isArray(shops)?shops:(shops?.data||[]),shop=list.find(s=>String(s.title||s.name||'').trim().toLowerCase()==='wild sage apparel')||list[0];if(!shop)throw new Error('Wild Sage Apparel Printify shop was not found.');shopId=String(shop.id);return shopId;}
 
 export function registerTestCheckoutRoutes(app){
+  registerShippingCheckoutRoutes(app);
   app.get('/api/admin/test-checkout/status',requireAdmin,(_req,res)=>res.json({configured:Boolean(testStripe)}));
   app.post('/api/admin/test-checkout',requireAdmin,async(req,res)=>{
     if(!testStripe)return res.status(503).json({error:'STRIPE_TEST_SECRET_KEY is not configured yet.'});
