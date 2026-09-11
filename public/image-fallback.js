@@ -35,15 +35,7 @@
     return [...new Set([...customFallback, ...urls])].filter(Boolean);
   }
 
-  function removeBrokenThumb(img) {
-    const thumb = img.closest('.product-thumb');
-    if (!thumb) return false;
-    thumb.remove();
-    return true;
-  }
-
   function showPlaceholder(img) {
-    if (removeBrokenThumb(img)) return;
     const wrap = img.closest('.product-image-wrap, .main-image-frame');
     if (!wrap) {
       img.style.display = 'none';
@@ -60,11 +52,10 @@
   async function recover(img) {
     if (!(img instanceof HTMLImageElement)) return;
 
-    // Broken thumbnails should disappear instead of leaving giant empty buttons.
-    if (img.closest('.product-thumb')) {
-      removeBrokenThumb(img);
-      return;
-    }
+    // Product-modal thumbnails are owned by product-modal-v4. Do not remove or
+    // rewrite them here: a slow CDN response can briefly fire an error on iOS
+    // and the old behavior made the entire thumbnail strip disappear.
+    if (img.closest('#productDialog .product-thumb')) return;
 
     await loadCatalog();
     const tried = new Set((img.dataset.triedSources || '').split('|').filter(Boolean));
