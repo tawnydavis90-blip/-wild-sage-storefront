@@ -34,8 +34,15 @@
   }
 
   function productForCard(card) {
+    const id = String(card?.dataset?.productId || '').trim();
+    if (id) {
+      const exact = catalog.find(p => String(p.id) === id);
+      if (exact) return exact;
+      return null;
+    }
     const title = $('.product-title', card)?.textContent?.trim() || '';
-    return catalog.find(p => String(p.title || '').trim() === title) || null;
+    const matches = catalog.filter(p => String(p.title || '').trim() === title);
+    return matches.length === 1 ? matches[0] : null;
   }
 
   function gridSignature() {
@@ -60,8 +67,6 @@
       const product = productForCard(card);
       if (!product) return;
       const item = settings.get(String(product.id));
-      const nextId = String(product.id);
-      if (card.dataset.productId !== nextId) { card.dataset.productId = nextId; changed = true; }
       const nextFeatured = item ? (item.featured ? 'true' : 'false') : null;
       const nextBest = item ? (item.bestSeller ? 'true' : 'false') : null;
       if (nextFeatured === null) {
