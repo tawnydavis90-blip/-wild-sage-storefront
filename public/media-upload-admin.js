@@ -3,103 +3,15 @@
   const $ = (s,r=document) => r.querySelector(s);
   const $$ = (s,r=document) => [...r.querySelectorAll(s)];
 
-  function loadImage(file){
-    return new Promise((resolve,reject)=>{
-      const url=URL.createObjectURL(file), img=new Image();
-      img.onload=()=>{URL.revokeObjectURL(url);resolve(img);};
-      img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('This image could not be opened. Try a JPG, PNG, or another photo.'));};
-      img.src=url;
-    });
-  }
-
-  async function prepareImage(file){
-    if(!file || !String(file.type||'').startsWith('image/')) throw new Error('Please choose an image.');
-    const img=await loadImage(file);
-    const maxDimension=2200;
-    const scale=Math.min(1,maxDimension/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));
-    const canvas=document.createElement('canvas');
-    canvas.width=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));
-    canvas.height=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));
-    const ctx=canvas.getContext('2d');
-    ctx.drawImage(img,0,0,canvas.width,canvas.height);
-    let blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',0.9));
-    if(!blob) blob=file;
-    if(blob.size>MAX_UPLOAD) blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',0.76));
-    if(!blob || blob.size>MAX_UPLOAD) throw new Error('The image is still too large after compression. Please choose a smaller image.');
-    const ext=blob.type==='image/png'?'.png':blob.type==='image/jpeg'?'.jpg':'.webp';
-    const base=String(file.name||'mockup').replace(/\.[^.]+$/,'').replace(/[^a-zA-Z0-9._ -]/g,'').trim()||'mockup';
-    return {blob,filename:`${base}${ext}`};
-  }
-
-  async function upload(file,status){
-    status.textContent='Preparing image…';
-    const prepared=await prepareImage(file);
-    status.textContent='Uploading…';
-    const res=await fetch('/api/admin/media',{
-      method:'POST',
-      headers:{'Content-Type':'application/octet-stream','X-File-Name':prepared.filename,'X-Mime-Type':prepared.blob.type||'image/webp'},
-      body:prepared.blob
-    });
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok) throw new Error(data.error||'Upload failed.');
-    return data;
-  }
-
-  function labelFor(input){
-    if(input.classList.contains('main-front-url')) return 'Upload main front';
-    if(input.classList.contains('main-back-url')) return 'Upload main back';
-    if(input.classList.contains('color-front-url')) return 'Upload color front';
-    if(input.classList.contains('color-back-url')) return 'Upload color back';
-    return 'Upload image';
-  }
-
-  function enhanceInput(input){
-    if(input.dataset.directUploadReady) return;
-    input.dataset.directUploadReady='true';
-    const wrap=document.createElement('div');
-    wrap.className='media-upload-controls';
-    const picker=document.createElement('input');
-    picker.type='file'; picker.accept='image/*'; picker.className='media-file-picker';
-    const button=document.createElement('button');
-    button.type='button'; button.className='media-upload-button'; button.textContent=labelFor(input);
-    const status=document.createElement('span'); status.className='media-upload-status';
-    wrap.append(button,picker,status);
-    input.insertAdjacentElement('afterend',wrap);
-    button.addEventListener('click',()=>picker.click());
-    picker.addEventListener('change',async()=>{
-      const file=picker.files?.[0]; if(!file) return;
-      button.disabled=true;
-      try{
-        const result=await upload(file,status);
-        input.value=result.url;
-        input.dispatchEvent(new Event('input',{bubbles:true}));
-        const card=input.closest('.product-admin-card');
-        const preview=$('img',card);
-        if(preview && input.classList.contains('main-front-url')) preview.src=result.url;
-        status.textContent='Uploaded — saving…';
-        const save=$('.save-product',card);
-        if(save){save.click();setTimeout(()=>{status.textContent='Uploaded & saved';},500);} else status.textContent='Uploaded — tap Save';
-      }catch(err){status.textContent=err.message;}
-      finally{button.disabled=false;picker.value='';}
-    });
-  }
-
-  function enhanceCards(){
-    $$('.product-admin-card .mockup-manager input.main-front-url, .product-admin-card .mockup-manager input.main-back-url, .product-admin-card .mockup-manager input.color-front-url, .product-admin-card .mockup-manager input.color-back-url').forEach(enhanceInput);
-    $$('.product-admin-card .mockups input.mockup-url').forEach(enhanceInput);
-  }
-
-  function loadMediaLibrary(){
-    if(!document.querySelector('link[href="/media-library.css"]')){const l=document.createElement('link');l.rel='stylesheet';l.href='/media-library.css';document.head.appendChild(l);}
-    if(!document.querySelector('script[src="/media-library.js"]')){const s=document.createElement('script');s.src='/media-library.js';s.defer=true;document.body.appendChild(s);}
-  }
-
+  function loadImage(file){return new Promise((resolve,reject)=>{const url=URL.createObjectURL(file),img=new Image();img.onload=()=>{URL.revokeObjectURL(url);resolve(img)};img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('This image could not be opened. Try a JPG, PNG, or another photo.'))};img.src=url})}
+  async function prepareImage(file){if(!file||!String(file.type||'').startsWith('image/'))throw new Error('Please choose an image.');const img=await loadImage(file),maxDimension=2200,scale=Math.min(1,maxDimension/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));canvas.height=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,canvas.width,canvas.height);let blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',0.9));if(!blob)blob=file;if(blob.size>MAX_UPLOAD)blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',0.76));if(!blob||blob.size>MAX_UPLOAD)throw new Error('The image is still too large after compression. Please choose a smaller image.');const ext=blob.type==='image/png'?'.png':blob.type==='image/jpeg'?'.jpg':'.webp',base=String(file.name||'mockup').replace(/\.[^.]+$/,'').replace(/[^a-zA-Z0-9._ -]/g,'').trim()||'mockup';return{blob,filename:`${base}${ext}`}}
+  async function upload(file,status){status.textContent='Preparing image…';const prepared=await prepareImage(file);status.textContent='Uploading…';const res=await fetch('/api/admin/media',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-File-Name':prepared.filename,'X-Mime-Type':prepared.blob.type||'image/webp'},body:prepared.blob}),data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||'Upload failed.');return data}
+  function labelFor(input){if(input.classList.contains('main-front-url'))return'Upload main front';if(input.classList.contains('main-back-url'))return'Upload main back';if(input.classList.contains('color-front-url'))return'Upload color front';if(input.classList.contains('color-back-url'))return'Upload color back';return'Upload image'}
+  function enhanceInput(input){if(input.dataset.directUploadReady)return;input.dataset.directUploadReady='true';const wrap=document.createElement('div');wrap.className='media-upload-controls';const picker=document.createElement('input');picker.type='file';picker.accept='image/*';picker.className='media-file-picker';const button=document.createElement('button');button.type='button';button.className='media-upload-button';button.textContent=labelFor(input);const status=document.createElement('span');status.className='media-upload-status';wrap.append(button,picker,status);input.insertAdjacentElement('afterend',wrap);button.addEventListener('click',()=>picker.click());picker.addEventListener('change',async()=>{const file=picker.files?.[0];if(!file)return;button.disabled=true;try{const result=await upload(file,status);input.value=result.url;input.dispatchEvent(new Event('input',{bubbles:true}));const card=input.closest('.product-admin-card'),preview=$('img',card);if(preview&&input.classList.contains('main-front-url'))preview.src=result.url;status.textContent='Uploaded — saving…';const save=$('.save-product',card);if(save){save.click();setTimeout(()=>{status.textContent='Uploaded & saved'},500)}else status.textContent='Uploaded — tap Save'}catch(err){status.textContent=err.message}finally{button.disabled=false;picker.value=''}})}
+  function enhanceCards(){$$('.product-admin-card .mockup-manager input.main-front-url, .product-admin-card .mockup-manager input.main-back-url, .product-admin-card .mockup-manager input.color-front-url, .product-admin-card .mockup-manager input.color-back-url').forEach(enhanceInput);$$('.product-admin-card .mockups input.mockup-url').forEach(enhanceInput)}
+  function loadScript(src){if(document.querySelector(`script[src="${src}"]`))return;const s=document.createElement('script');s.src=src;s.defer=true;document.body.appendChild(s)}
+  function loadMediaLibrary(){if(!document.querySelector('link[href="/media-library.css"]')){const l=document.createElement('link');l.rel='stylesheet';l.href='/media-library.css';document.head.appendChild(l)}loadScript('/media-library.js')}
   const observer=new MutationObserver(()=>enhanceCards());
-  function start(){
-    enhanceCards();loadMediaLibrary();
-    const grid=$('#productsGrid');
-    if(grid) observer.observe(grid,{childList:true,subtree:true});
-    document.querySelector('[data-tab="products"]')?.addEventListener('click',()=>setTimeout(enhanceCards,50));
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
+  function start(){enhanceCards();loadMediaLibrary();loadScript('/product-name-admin.js');loadScript('/social-settings-admin.js');const grid=$('#productsGrid');if(grid)observer.observe(grid,{childList:true,subtree:true});document.querySelector('[data-tab="products"]')?.addEventListener('click',()=>setTimeout(enhanceCards,50))}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
