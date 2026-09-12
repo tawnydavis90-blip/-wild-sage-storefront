@@ -19,11 +19,21 @@ async function ensureSchema(){
     collection_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  await client.query(`CREATE TABLE IF NOT EXISTS product_display_names (
+    product_id TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL DEFAULT '',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
   await client.query(`CREATE TABLE IF NOT EXISTS collection_settings (
     collection_id TEXT PRIMARY KEY,
     label TEXT NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     sort_order INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await client.query(`CREATE TABLE IF NOT EXISTS store_settings (
+    setting_key TEXT PRIMARY KEY,
+    setting_value JSONB NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
   await client.query(`INSERT INTO collection_settings(collection_id,label,enabled,sort_order)
@@ -47,10 +57,24 @@ function cleanIds(value){
   if(!Array.isArray(value)) return [];
   return [...new Set(value.map(v=>String(v||'').trim()).filter(Boolean).filter(v=>v!=='all'))].slice(0,30);
 }
+function cleanText(value,max=300){return String(value??'').trim().slice(0,max);}
+function cleanUrl(value){const s=cleanText(value,500);if(!s)return'';try{const u=new URL(s);return ['http:','https:'].includes(u.protocol)?u.toString():''}catch{return''}}
 async function readAssignments(){
   if(!(await ensureSchema())) return {configured:false,items:[]};
   const {rows}=await db().query('SELECT product_id,collection_ids,updated_at FROM product_collection_assignments ORDER BY updated_at DESC');
   return {configured:true,items:rows.map(r=>({productId:r.product_id,collections:Array.isArray(r.collection_ids)?r.collection_ids:[],updatedAt:r.updated_at}))};
+}
+async function readNames(){
+  if(!(await ensureSchema())) return {configured:false,items:[]};
+  const {rows}=await db().query("SELECT product_id,display_name,updated_at FROM product_display_names WHERE display_name<>'' ORDER BY updated_at DESC");
+  return {configured:true,items:rows.map(r=>({productId:r.product_id,displayName:r.display_name,updatedAt:r.updated_at}))};
+}
+async function readSocial(){
+  const empty={instagram:'',facebook:'',tiktok:'',pinterest:''};
+  if(!(await ensureSchema()))return{configured:false,links:empty};
+  const {rows}=await db().query("SELECT setting_value FROM store_settings WHERE setting_key='socialLinks' LIMIT 1");
+  const raw=rows[0]?.setting_value||{};
+  return {configured:true,links:Object.fromEntries(Object.keys(empty).map(k=>[k,cleanUrl(raw?.[k])]))};
 }
 
 export function registerProductCollectionRoutes(app){
@@ -75,5 +99,29 @@ export function registerProductCollectionRoutes(app){
       await db().query('DELETE FROM product_collection_assignments WHERE product_id=$1',[productId]);
       res.json({ok:true,productId,automatic:true});
     }catch(err){console.error('Product collections reset error:',err);res.status(500).json({error:'Unable to reset product collections.'})}
+  });
+
+  app.get('/api/product-names',async(_req,res)=>{try{res.json(await readNames())}catch(err){res.status(500).json({error:'Unable to load product names.'})}});
+  app.get('/api/admin/product-names',requireAdmin,async(_req,res)=>{try{res.json(await readNames())}catch(err){res.status(500).json({error:'Unable to load product names.'})}});
+  app.put('/api/admin/product-names/:id',requireAdmin,async(req,res)=>{
+    try{
+      if(!(await ensureSchema()))return res.status(503).json({error:'DATABASE_URL is not configured.'});
+      const productId=cleanText(req.params.id,140),displayName=cleanText(req.body?.displayName,180);
+      if(!productId)return res.status(400).json({error:'Product id is required.'});
+      if(!displayName){await db().query('DELETE FROM product_display_names WHERE product_id=$1',[productId]);return res.json({ok:true,item:{productId,displayName:''}})}
+      const {rows}=await db().query(`INSERT INTO product_display_names(product_id,display_name,updated_at) VALUES($1,$2,NOW()) ON CONFLICT(product_id) DO UPDATE SET display_name=EXCLUDED.display_name,updated_at=NOW() RETURNING product_id,display_name,updated_at`,[productId,displayName]);
+      const r=rows[0];res.json({ok:true,item:{productId:r.product_id,displayName:r.display_name,updatedAt:r.updated_at}});
+    }catch(err){console.error('Product rename error:',err);res.status(500).json({error:'Unable to save product name.'})}
+  });
+
+  app.get('/api/social-links',async(_req,res)=>{try{res.json(await readSocial())}catch(err){res.status(500).json({error:'Unable to load social links.'})}});
+  app.get('/api/admin/social-links',requireAdmin,async(_req,res)=>{try{res.json(await readSocial())}catch(err){res.status(500).json({error:'Unable to load social links.'})}});
+  app.put('/api/admin/social-links',requireAdmin,async(req,res)=>{
+    try{
+      if(!(await ensureSchema()))return res.status(503).json({error:'DATABASE_URL is not configured.'});
+      const links={instagram:cleanUrl(req.body?.instagram),facebook:cleanUrl(req.body?.facebook),tiktok:cleanUrl(req.body?.tiktok),pinterest:cleanUrl(req.body?.pinterest)};
+      await db().query(`INSERT INTO store_settings(setting_key,setting_value,updated_at) VALUES('socialLinks',$1::jsonb,NOW()) ON CONFLICT(setting_key) DO UPDATE SET setting_value=EXCLUDED.setting_value,updated_at=NOW()`,[JSON.stringify(links)]);
+      res.json({ok:true,links});
+    }catch(err){console.error('Social links save error:',err);res.status(500).json({error:'Unable to save social links.'})}
   });
 }
