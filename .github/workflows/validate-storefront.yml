@@ -18,19 +18,71 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate server syntax
-        run: node --check server.js
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
 
-      - name: Confirm storefront files
+      - name: Validate JavaScript syntax
+        shell: bash
         run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            echo "Checking $file"
+            node --check "$file"
+          done < <(find . -type f -name '*.js' \
+            -not -path './node_modules/*' \
+            -not -path './.git/*' -print0)
+
+      - name: Confirm critical storefront files
+        run: |
+          set -e
           test -f public/index.html
           test -f public/app.js
           test -f public/styles.css
-          test -f public/selector-fix.js
+          test -f public/product-modal-v7.js
+          test -f public/product-controller-v1.js
+          test -f public/collection-storefront.js
+          test -f public/secondary-nav.js
+          test -f public/printify-shipping.js
+          test -f public/social-links.js
+          test -f public/admin.html
+          test -f public/admin-client.js
+          test -f public/order-lookup.html
           test -f public/shipping.html
           test -f public/returns.html
           test -f public/privacy.html
           test -f public/terms.html
 
-      - name: Confirm package metadata
+      - name: Validate package metadata
         run: node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json valid')"
+
+      - name: Check critical storefront wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'id="bagBtn"' public/index.html
+          grep -q 'id="productDialog"' public/index.html
+          grep -q '/product-modal-v7.js' public/index.html
+          grep -q '/product-controller-v1.js' public/index.html
+          grep -q '/printify-shipping.js' public/index.html
+          grep -q '/social-links.js' public/index.html
+          grep -q "app.get('/api/health'" server.js
+          grep -q "app.get('/api/products'" server.js
+          grep -q "app.post('/api/checkout'" server.js
+          grep -q "app.post('/api/webhooks/stripe'" server.js
+
+      - name: Start local smoke-test server
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT=3100 node server.js > /tmp/wild-sage-server.log 2>&1 &
+          echo $! > /tmp/wild-sage-server.pid
+          for i in {1..20}; do
+            if curl -fsS http://127.0.0.1:3100/api/health >/tmp/health.json; then break; fi
+            sleep 1
+          done
+          cat /tmp/health.json
+          curl -fsS http://127.0.0.1:3100/ >/dev/null
+          curl -fsS http://127.0.0.1:3100/order-lookup >/dev/null
+          curl -fsS http://127.0.0.1:3100/shipping.html >/dev/null
+          curl -fsS http://127.0.0.1:3100/returns.html >/dev/null
+          kill "$(cat /tmp/wild-sage-server.pid)"
