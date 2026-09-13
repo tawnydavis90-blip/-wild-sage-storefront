@@ -6,7 +6,9 @@
 
   function applyCurrentDrop(){
     if(!landingMode) return;
-    const cards=$$('.product-card','#productGrid' in document ? document : document);
+    const grid=$('#productGrid');
+    if(!grid) return;
+    const cards=$$('.product-card',grid);
     let marked=0;
     cards.forEach(card=>{
       const id=String(card.dataset.productId||'');
