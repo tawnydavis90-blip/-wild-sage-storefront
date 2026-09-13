@@ -8,13 +8,27 @@
 .product-thumb img{object-fit:contain!important;background:#efe9df!important}
 @media(max-width:760px){
   .announcement{font-size:.58rem;padding:8px 10px;gap:8px}.announcement-right{display:none}
-  .site-header{padding-left:14px!important;padding-right:14px!important}.brand-mark{font-size:1.2rem!important}.brand-tag{display:none!important}
-  .header-actions{gap:5px!important}.icon-button,.bag-button{min-height:42px!important}
+  .site-header{padding-left:18px!important;padding-right:18px!important;grid-template-columns:minmax(0,1fr) auto!important;gap:14px!important;min-height:142px!important}
+  .brand{min-width:0!important}.brand-mark{font-size:1.55rem!important}.brand-sub{font-size:1.35rem!important}.brand-tag{display:none!important}
+  .header-actions{grid-column:2!important;grid-row:1!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:12px!important;min-width:max-content!important}
+  .menu-toggle{display:grid!important;place-items:center!important;position:static!important;grid-column:2!important;grid-row:1!important;width:48px!important;height:48px!important;margin:0 78px 0 0!important;padding:0!important;border:1px solid var(--line)!important;background:transparent!important;font-size:1.25rem!important;line-height:1!important;z-index:32!important}
+  .header-actions .icon-button{display:none!important}
+  .bag-button{display:flex!important;align-items:center!important;gap:8px!important;min-height:58px!important;padding:0!important;border:0!important;background:transparent!important}
+  .bag-button .bag-art{width:58px!important;height:58px!important;margin:0!important;flex:0 0 58px!important}
+  .bag-button .bag-art .line-icon{width:30px!important;height:30px!important}
+  .bag-button #bagCount{width:34px!important;height:34px!important;min-width:34px!important;margin:0!important;border-radius:50%!important}
+  .nav{top:100%!important;right:14px!important;left:14px!important;width:auto!important}
   #productDialog{width:100vw!important;max-width:none!important;height:100dvh!important;max-height:100dvh!important;margin:0!important;border:0!important;padding:0!important}
   #productDialog .product-dialog-grid{display:block!important}.product-gallery{padding:12px 14px 0!important}.product-dialog-copy{padding:18px 16px 104px!important}
   #productDialog .main-image-frame,#productDialog .product-gallery>img{max-height:52vh!important;object-fit:contain!important}
   .drawer{width:min(94vw,420px)!important}.bag-summary{padding-bottom:max(18px,env(safe-area-inset-bottom))!important}
   .product-grid,.showcase-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.product-info{padding:12px 8px!important}.product-title{font-size:.95rem!important}
   .category-strip{padding-bottom:8px!important}.category-strip .category{min-height:44px!important}
+}
+@media(max-width:430px){
+  .site-header{padding-left:16px!important;padding-right:14px!important;gap:8px!important}
+  .brand-mark{font-size:1.42rem!important}.brand-sub{font-size:1.28rem!important}
+  .menu-toggle{width:44px!important;height:44px!important;margin-right:74px!important}
+  .header-actions{gap:8px!important}.bag-button .bag-art{width:54px!important;height:54px!important;flex-basis:54px!important}.bag-button #bagCount{width:32px!important;height:32px!important;min-width:32px!important}
 }
 @media(max-width:390px){.product-grid,.showcase-grid{grid-template-columns:1fr!important}.product-card{max-width:100%!important}}
