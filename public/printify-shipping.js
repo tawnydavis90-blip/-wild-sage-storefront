@@ -1,5 +1,6 @@
 (()=>{
   const $=s=>document.querySelector(s);
+  const value=id=>document.getElementById(id)?.value||'';
   const cart=()=>{try{return JSON.parse(localStorage.getItem('wildSageCart')||'[]')}catch{return[]}};
   const items=()=>cart().map(i=>({productId:i.productId,variantId:i.variantId,quantity:i.quantity}));
   const summary=$('.bag-summary'),checkout=$('#checkoutBtn'),message=$('#checkoutMessage');
@@ -12,15 +13,16 @@
 
   const qmsg=$('#shippingQuoteMessage'),qval=$('#shippingQuoteValue'),quoteBtn=$('#quoteShippingBtn');
   let lastKey='',lastQuote=null;
-  const address=()=>({phone:$('#shipPhone').value,address1:$('#shipAddress1').value,address2:$('#shipAddress2').value,city:$('#shipCity').value,region:$('#shipState').value.toUpperCase(),zip:$('#shipZip').value,country:'US'});
+  const address=()=>({phone:value('shipPhone'),address1:value('shipAddress1'),address2:value('shipAddress2'),city:value('shipCity'),region:value('shipState').toUpperCase(),zip:value('shipZip'),country:'US'});
   const key=()=>JSON.stringify({items:items(),address:address()});
 
+  function field(id){return document.getElementById(id)}
   function firstMissingField(){
-    if(!$('#shipPhone').value.trim())return $('#shipPhone');
-    if(!$('#shipAddress1').value.trim())return $('#shipAddress1');
-    if(!$('#shipCity').value.trim())return $('#shipCity');
-    if(!$('#shipState').value.trim())return $('#shipState');
-    if(!$('#shipZip').value.trim())return $('#shipZip');
+    if(!value('shipPhone').trim())return field('shipPhone');
+    if(!value('shipAddress1').trim())return field('shipAddress1');
+    if(!value('shipCity').trim())return field('shipCity');
+    if(!value('shipState').trim())return field('shipState');
+    if(!value('shipZip').trim())return field('shipZip');
     return null;
   }
   function validate(){
@@ -32,8 +34,8 @@
     lastQuote=null;
     qval.textContent='Not calculated';
     qmsg.textContent=err?.message||'Unable to calculate shipping.';
-    const field=firstMissingField();
-    if(field){field.focus({preventScroll:true});setTimeout(()=>field.scrollIntoView({behavior:'smooth',block:'center'}),50);}
+    const missing=firstMissingField();
+    if(missing){try{missing.focus({preventScroll:true})}catch{}setTimeout(()=>missing.scrollIntoView?.({behavior:'smooth',block:'center'}),50);}
   }
   async function parseJsonResponse(r){
     const text=await r.text();
@@ -54,12 +56,7 @@
       qval.textContent=`Standard ${d.formatted}`;
       qmsg.textContent='Live shipping rate confirmed.';
       return d;
-    }catch(e){
-      showQuoteError(e);
-      throw e;
-    }finally{
-      quoteBtn.disabled=false;
-    }
+    }catch(e){showQuoteError(e);throw e;}finally{quoteBtn.disabled=false;}
   }
 
   quoteBtn.addEventListener('click',e=>{e.preventDefault();quote().catch(()=>{});});
