@@ -11,7 +11,7 @@
     const existing=[...document.querySelectorAll('.ws-social-links')];if(existing.length){existing.slice(1).forEach(x=>x.remove());return;}
     let links={
       instagram:'https://www.instagram.com/wildsageapparelco?stkn=MTk0enU1ZHFpcjR0Yg%3D%3D&utm_source=qr',
-      facebook:'https://www.facebook.com',
+      facebook:'https://www.facebook.com/share/17Zr7ieYCk/?mibextid=wwXIfr',
       tiktok:'',
       pinterest:''
     };
