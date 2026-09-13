@@ -6,6 +6,7 @@
 .product-care-blocks p{color:var(--muted);line-height:1.6;margin:10px 0 2px}
 .product-thumb.active{outline:2px solid var(--cream)!important;outline-offset:2px}
 .product-thumb img{object-fit:contain!important;background:#efe9df!important}
+body>.category-strip .category[data-filter="all"]{display:none!important}
 @media(max-width:760px){
   .announcement{font-size:.58rem;padding:8px 10px;gap:8px}.announcement-right{display:none}
   .site-header{padding-left:18px!important;padding-right:18px!important;grid-template-columns:minmax(0,1fr) auto!important;gap:14px!important;min-height:142px!important}
@@ -19,7 +20,15 @@
   .bag-button #bagCount{width:34px!important;height:34px!important;min-width:34px!important;margin:0!important;border-radius:50%!important}
   .nav{top:100%!important;right:14px!important;left:14px!important;width:auto!important}
   #productDialog{width:100vw!important;max-width:none!important;height:100dvh!important;max-height:100dvh!important;margin:0!important;border:0!important;padding:0!important}
-  #productDialog .product-dialog-grid{display:block!important}.product-gallery{padding:12px 14px 0!important}.product-dialog-copy{padding:18px 16px 104px!important}
+  #productDialog .product-dialog-grid{display:block!important}.product-gallery{padding:12px 14px 0!important}
+  #productDialog .product-dialog-copy{padding:18px 16px 104px!important;display:flex!important;flex-direction:column!important}
+  #productDialog .product-dialog-copy>.eyebrow{order:1!important}
+  #productDialog .product-dialog-copy>h2{order:2!important}
+  #productDialog .product-dialog-copy>.price{order:3!important}
+  #productDialog .product-dialog-copy>.variant-picker{order:4!important}
+  #productDialog .product-dialog-copy>.product-description{order:5!important;margin-top:20px!important;margin-bottom:4px!important}
+  #productDialog .product-dialog-copy>.sticky-add{order:6!important}
+  #productDialog .product-dialog-copy>.availability-note{order:7!important}
   #productDialog .main-image-frame,#productDialog .product-gallery>img{max-height:52vh!important;object-fit:contain!important}
   .drawer{width:min(94vw,420px)!important}.bag-summary{padding-bottom:max(18px,env(safe-area-inset-bottom))!important}
   .product-grid,.showcase-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.product-info{padding:12px 8px!important}.product-title{font-size:.95rem!important}
