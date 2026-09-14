@@ -45,6 +45,7 @@
   async function quote(){
     quoteBtn.disabled=true;
     qmsg.textContent='';
+    message.textContent='';
     try{
       if(!items().length)throw Error('Your bag is empty.');
       validate();
@@ -61,7 +62,7 @@
 
   quoteBtn.addEventListener('click',e=>{e.preventDefault();quote().catch(()=>{});});
   quoteBtn.addEventListener('touchend',e=>{e.preventDefault();quote().catch(()=>{});},{passive:false});
-  wrap.addEventListener('input',()=>{lastQuote=null;qval.textContent='Not calculated';qmsg.textContent='';});
+  wrap.addEventListener('input',()=>{lastQuote=null;qval.textContent='Not calculated';qmsg.textContent='';message.textContent='';});
 
   checkout.onclick=async()=>{
     if(!items().length){message.textContent='Your bag is empty.';return}
