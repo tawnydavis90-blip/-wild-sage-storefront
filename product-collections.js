@@ -24,6 +24,8 @@ async function ensureSchema(){
     display_name TEXT NOT NULL DEFAULT '',
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  await client.query(`ALTER TABLE product_display_names
+    ADD COLUMN IF NOT EXISTS storefront_description TEXT NOT NULL DEFAULT ''`);
   await client.query(`CREATE TABLE IF NOT EXISTS collection_settings (
     collection_id TEXT PRIMARY KEY,
     label TEXT NOT NULL,
@@ -66,8 +68,8 @@ async function readAssignments(){
 }
 async function readNames(){
   if(!(await ensureSchema())) return {configured:false,items:[]};
-  const {rows}=await db().query("SELECT product_id,display_name,updated_at FROM product_display_names WHERE display_name<>'' ORDER BY updated_at DESC");
-  return {configured:true,items:rows.map(r=>({productId:r.product_id,displayName:r.display_name,updatedAt:r.updated_at}))};
+  const {rows}=await db().query("SELECT product_id,display_name,storefront_description,updated_at FROM product_display_names WHERE display_name<>'' OR storefront_description<>'' ORDER BY updated_at DESC");
+  return {configured:true,items:rows.map(r=>({productId:r.product_id,displayName:r.display_name,storefrontDescription:r.storefront_description,updatedAt:r.updated_at}))};
 }
 async function readSocial(){
   const empty={instagram:'',facebook:'',tiktok:'',pinterest:''};
@@ -106,12 +108,12 @@ export function registerProductCollectionRoutes(app){
   app.put('/api/admin/product-names/:id',requireAdmin,async(req,res)=>{
     try{
       if(!(await ensureSchema()))return res.status(503).json({error:'DATABASE_URL is not configured.'});
-      const productId=cleanText(req.params.id,140),displayName=cleanText(req.body?.displayName,180);
+      const productId=cleanText(req.params.id,140),displayName=cleanText(req.body?.displayName,180),storefrontDescription=cleanText(req.body?.storefrontDescription,4000);
       if(!productId)return res.status(400).json({error:'Product id is required.'});
-      if(!displayName){await db().query('DELETE FROM product_display_names WHERE product_id=$1',[productId]);return res.json({ok:true,item:{productId,displayName:''}})}
-      const {rows}=await db().query(`INSERT INTO product_display_names(product_id,display_name,updated_at) VALUES($1,$2,NOW()) ON CONFLICT(product_id) DO UPDATE SET display_name=EXCLUDED.display_name,updated_at=NOW() RETURNING product_id,display_name,updated_at`,[productId,displayName]);
-      const r=rows[0];res.json({ok:true,item:{productId:r.product_id,displayName:r.display_name,updatedAt:r.updated_at}});
-    }catch(err){console.error('Product rename error:',err);res.status(500).json({error:'Unable to save product name.'})}
+      if(!displayName&&!storefrontDescription){await db().query('DELETE FROM product_display_names WHERE product_id=$1',[productId]);return res.json({ok:true,item:{productId,displayName:'',storefrontDescription:''}})}
+      const {rows}=await db().query(`INSERT INTO product_display_names(product_id,display_name,storefront_description,updated_at) VALUES($1,$2,$3,NOW()) ON CONFLICT(product_id) DO UPDATE SET display_name=EXCLUDED.display_name,storefront_description=EXCLUDED.storefront_description,updated_at=NOW() RETURNING product_id,display_name,storefront_description,updated_at`,[productId,displayName,storefrontDescription]);
+      const r=rows[0];res.json({ok:true,item:{productId:r.product_id,displayName:r.display_name,storefrontDescription:r.storefront_description,updatedAt:r.updated_at}});
+    }catch(err){console.error('Product content save error:',err);res.status(500).json({error:'Unable to save product content.'})}
   });
 
   app.get('/api/social-links',async(_req,res)=>{try{res.json(await readSocial())}catch(err){res.status(500).json({error:'Unable to load social links.'})}});

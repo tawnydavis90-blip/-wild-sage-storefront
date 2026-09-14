@@ -12,6 +12,6 @@
   function loadScript(src){if(document.querySelector(`script[src="${src}"]`))return;const s=document.createElement('script');s.src=src;s.defer=true;document.body.appendChild(s)}
   function loadMediaLibrary(){if(!document.querySelector('link[href="/media-library.css"]')){const l=document.createElement('link');l.rel='stylesheet';l.href='/media-library.css';document.head.appendChild(l)}loadScript('/media-library.js')}
   const observer=new MutationObserver(()=>enhanceCards());
-  function start(){enhanceCards();loadMediaLibrary();loadScript('/product-name-admin.js');loadScript('/social-settings-admin.js');const grid=$('#productsGrid');if(grid)observer.observe(grid,{childList:true,subtree:true});document.querySelector('[data-tab="products"]')?.addEventListener('click',()=>setTimeout(enhanceCards,50))}
+  function start(){enhanceCards();loadMediaLibrary();loadScript('/product-name-admin.js?v=2');loadScript('/social-settings-admin.js');const grid=$('#productsGrid');if(grid)observer.observe(grid,{childList:true,subtree:true});document.querySelector('[data-tab="products"]')?.addEventListener('click',()=>setTimeout(enhanceCards,50))}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();

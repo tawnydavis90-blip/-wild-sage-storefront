@@ -56,6 +56,16 @@ CREATE TABLE IF NOT EXISTS product_collection_assignments (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS product_display_names (
+  product_id text PRIMARY KEY,
+  display_name text NOT NULL DEFAULT '',
+  storefront_description text NOT NULL DEFAULT '',
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE product_display_names
+  ADD COLUMN IF NOT EXISTS storefront_description text NOT NULL DEFAULT '';
+
 CREATE TABLE IF NOT EXISTS product_merchandising (
   product_id text PRIMARY KEY,
   featured boolean NOT NULL DEFAULT false,
