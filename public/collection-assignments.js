@@ -43,6 +43,7 @@
   function collectionUrl(filter){return `/collections/${encodeURIComponent(String(filter||'').toLowerCase())}`;}
   function activate(filter){
     currentFilter=filter||'all';
+    if(currentFilter==='all')window.dispatchEvent(new CustomEvent('wildsage:show-all-products'));
     $$('.category').forEach(b=>b.classList.toggle('active',b.dataset.filter===currentFilter));
     applyFilter();
     $('#drop')?.scrollIntoView({behavior:'smooth',block:'start'});

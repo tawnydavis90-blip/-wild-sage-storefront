@@ -1,6 +1,6 @@
 (()=>{
   if(!location.pathname.startsWith('/collections/')) return;
-  const navScript=document.createElement('script');navScript.src='/secondary-nav.js';navScript.defer=true;document.head.appendChild(navScript);
+  const navScript=document.createElement('script');navScript.src='/secondary-nav.js?v=2';navScript.defer=true;document.head.appendChild(navScript);
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(n||0));
   const state={cart:JSON.parse(localStorage.getItem('wildSageCart')||'[]'),products:[],merch:new Map(),names:new Map()};

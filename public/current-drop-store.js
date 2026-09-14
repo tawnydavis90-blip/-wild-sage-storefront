@@ -37,6 +37,10 @@
     });
   }
 
+  function leaveLandingMode(){
+    landingMode=false;
+  }
+
   async function loadMerch(){
     try{
       const r=await fetch('/api/merchandising',{headers:{Accept:'application/json'}}),d=await r.json();
@@ -46,8 +50,9 @@
   }
 
   document.addEventListener('click',e=>{
-    if(e.target.closest?.('.category,[data-shop-filter],#showAllBtn')) landingMode=false;
+    if(e.target.closest?.('.category,[data-shop-filter],#showAllBtn')) leaveLandingMode();
   },true);
+  window.addEventListener('wildsage:show-all-products',leaveLandingMode);
   window.addEventListener('wildsage:merchandising-ready',scheduleApply);
   document.addEventListener('DOMContentLoaded',()=>{
     loadMerch();

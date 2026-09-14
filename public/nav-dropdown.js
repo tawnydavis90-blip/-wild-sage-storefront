@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const filter=link.dataset.shopFilter;
     if(filter==='all'){
       e.preventDefault();
-      location.href='/#drop';
+      location.href='/collections/all';
       return;
     }
     e.preventDefault();
