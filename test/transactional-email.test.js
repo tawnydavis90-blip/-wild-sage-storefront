@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emailConfig, sendPaidOrderEmails, transactionalEmailStatus } from '../transactional-email.js';
+import { emailConfig, sendCustomerOrderConfirmationTest, sendPaidOrderEmails, transactionalEmailStatus } from '../transactional-email.js';
 
 const session = {
   id: 'cs_live_safe_test',
@@ -84,4 +84,22 @@ test('reports an email failure without throwing', async () => {
   assert.equal(result.sent.length, 1);
   assert.equal(result.failed.length, 1);
   assert.equal(result.failed[0].kind, 'customer');
+});
+
+test('sends a fulfillment-free customer confirmation test', async () => {
+  let request;
+  const fetchImpl = async (_url, options) => {
+    request = options;
+    return { ok: true, status: 200, text: async () => JSON.stringify({ id: 'email-test-1' }) };
+  };
+  const result = await sendCustomerOrderConfirmationTest({
+    to: 'owner@example.com',
+    testId: 'smoke-1',
+    env: { RESEND_API_KEY: 'secret', ORDER_FROM_EMAIL: 'orders@wildsageapparel.com' },
+    fetchImpl
+  });
+  assert.equal(result.id, 'email-test-1');
+  assert.equal(JSON.parse(request.body).to[0], 'owner@example.com');
+  assert.match(JSON.parse(request.body).subject, /test order confirmed/i);
+  assert.equal(request.headers['Idempotency-Key'], 'wild-sage-test-smoke-1');
 });
