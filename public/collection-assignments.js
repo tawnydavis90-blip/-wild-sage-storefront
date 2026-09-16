@@ -10,7 +10,7 @@
     const h=`${p?.title||''} ${tags}`.toLowerCase();
     if(filter==='crops')return /crop|cropped/.test(h);
     if(filter==='tanks')return /tank/.test(h);
-    if(filter==='tees')return /\btee\b|t-shirt|shirt/.test(h);
+    if(filter==='tees')return /\b(?:tee|t-shirt|shirt)\b/.test(h);
     if(filter==='hoodies')return /hoodie|sweatshirt|fleece/.test(h);
     if(filter==='fall')return /fall|autumn|halloween|horror/.test(h);
     return h.includes(filter);

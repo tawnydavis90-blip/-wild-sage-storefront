@@ -61,7 +61,7 @@ function cleanIds(value){
 }
 function cleanText(value,max=300){return String(value??'').trim().slice(0,max);}
 function cleanUrl(value){const s=cleanText(value,500);if(!s)return'';try{const u=new URL(s);return ['http:','https:'].includes(u.protocol)?u.toString():''}catch{return''}}
-async function readAssignments(){
+export async function readAssignments(){
   if(!(await ensureSchema())) return {configured:false,items:[]};
   const {rows}=await db().query('SELECT product_id,collection_ids,updated_at FROM product_collection_assignments ORDER BY updated_at DESC');
   return {configured:true,items:rows.map(r=>({productId:r.product_id,collections:Array.isArray(r.collection_ids)?r.collection_ids:[],updatedAt:r.updated_at}))};
