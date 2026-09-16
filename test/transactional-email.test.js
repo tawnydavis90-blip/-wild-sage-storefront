@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emailConfig, sendCustomerOrderConfirmationTest, sendPaidOrderEmails, transactionalEmailStatus } from '../transactional-email.js';
+import { emailConfig, sendCustomerOrderConfirmationTest, sendPaidOrderEmails, sendShippingNotificationEmail, transactionalEmailStatus } from '../transactional-email.js';
 
 const session = {
   id: 'cs_live_safe_test',
@@ -12,10 +12,13 @@ test('uses the Wild Sage sender and notification variables', () => {
   assert.deepEqual(emailConfig({
     RESEND_API_KEY: 'secret',
     WILD_SAGE_FROM_EMAIL: 'orders@wildsageapparel.com',
+    SHIPPING_FROM_EMAIL: 'shipping@wildsageapparel.com',
     WILD_SAGE_NOTIFICATION_EMAIL: 'owner@example.com'
   }), {
     apiKey: 'secret',
     from: 'orders@wildsageapparel.com',
+    shippingFrom: 'shipping@wildsageapparel.com',
+    support: 'support@wildsageapparel.com',
     notify: 'owner@example.com'
   });
 });
@@ -24,13 +27,42 @@ test('reports configuration readiness without exposing values', () => {
   assert.deepEqual(transactionalEmailStatus({
     RESEND_API_KEY: 'secret',
     WILD_SAGE_FROM_EMAIL: 'orders@wildsageapparel.com',
+    SHIPPING_FROM_EMAIL: 'shipping@wildsageapparel.com',
     WILD_SAGE_NOTIFICATION_EMAIL: 'owner@example.com'
   }), {
     apiKeyConfigured: true,
     senderConfigured: true,
+    shippingSenderConfigured: true,
     notificationConfigured: true,
     configured: true
   });
+});
+
+test('sends a branded tracking email from the shipping mailbox', async () => {
+  let request;
+  const fetchImpl = async (_url, options) => {
+    request = options;
+    return { ok: true, status: 200, text: async () => JSON.stringify({ id: 'shipping-email-1' }) };
+  };
+  const result = await sendShippingNotificationEmail({
+    session,
+    orderNumber: 'WS-1005',
+    eventId: 'printify-event-1',
+    shipment: { carrier: 'USPS', trackingNumber: '9400', trackingUrl: 'https://tools.usps.com/track/9400' },
+    env: {
+      RESEND_API_KEY: 'secret',
+      ORDER_FROM_EMAIL: 'orders@wildsageapparel.com',
+      SHIPPING_FROM_EMAIL: 'shipping@wildsageapparel.com'
+    },
+    fetchImpl
+  });
+  const message = JSON.parse(request.body);
+  assert.equal(result.sent, true);
+  assert.equal(message.from, 'shipping@wildsageapparel.com');
+  assert.equal(message.reply_to, 'support@wildsageapparel.com');
+  assert.match(message.subject, /WS-1005 has shipped/);
+  assert.match(message.text, /9400/);
+  assert.equal(request.headers['Idempotency-Key'], 'wild-sage-shipment-printify-event-1');
 });
 
 test('recognizes the deployed admin notification variable name', () => {
