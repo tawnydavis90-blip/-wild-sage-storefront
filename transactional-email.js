@@ -92,4 +92,14 @@ export async function sendPaidOrderEmails({ session, orderNumber, printifyOrder,
   return { sent, failed, skipped: false };
 }
 
+export function transactionalEmailStatus(env = process.env) {
+  const config = emailConfig(env);
+  return {
+    apiKeyConfigured: Boolean(config.apiKey),
+    senderConfigured: Boolean(config.from),
+    notificationConfigured: Boolean(config.notify),
+    configured: Boolean(config.apiKey && config.from && config.notify)
+  };
+}
+
 export { emailConfig };

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emailConfig, sendPaidOrderEmails } from '../transactional-email.js';
+import { emailConfig, sendPaidOrderEmails, transactionalEmailStatus } from '../transactional-email.js';
 
 const session = {
   id: 'cs_live_safe_test',
@@ -17,6 +17,19 @@ test('uses the Wild Sage sender and notification variables', () => {
     apiKey: 'secret',
     from: 'orders@wildsageapparel.com',
     notify: 'owner@example.com'
+  });
+});
+
+test('reports configuration readiness without exposing values', () => {
+  assert.deepEqual(transactionalEmailStatus({
+    RESEND_API_KEY: 'secret',
+    WILD_SAGE_FROM_EMAIL: 'orders@wildsageapparel.com',
+    WILD_SAGE_NOTIFICATION_EMAIL: 'owner@example.com'
+  }), {
+    apiKeyConfigured: true,
+    senderConfigured: true,
+    notificationConfigured: true,
+    configured: true
   });
 });
 
