@@ -92,6 +92,18 @@ export async function sendPaidOrderEmails({ session, orderNumber, printifyOrder,
   return { sent, failed, skipped: false };
 }
 
+
+export async function sendCustomerOrderConfirmationTest({ to, env = process.env, fetchImpl = fetch, testId = 'manual' }) {
+  const recipient = clean(to);
+  if (!recipient) throw new Error('A test email recipient is required.');
+  return sendResendEmail({
+    to: [recipient],
+    subject: 'Wild Sage test order confirmed',
+    html: '<div style="font-family:Arial,sans-serif;color:#222;line-height:1.6"><h1 style="font-family:Georgia,serif">Your order is confirmed</h1><p>Hi Tawny,</p><p>This is a test of the Wild Sage Apparel paid-order confirmation email. No payment was charged and no Printify order was created.</p><p><strong>Order number:</strong> WS-TEST-1001</p><p><strong>Total:</strong> $42.50</p><p>You will receive tracking information when a real order ships.</p><p><a href="https://wildsageapparel.com">Wild Sage Apparel</a></p></div>',
+    text: 'Hi Tawny,\n\nThis is a test of the Wild Sage Apparel paid-order confirmation email. No payment was charged and no Printify order was created.\n\nOrder number: WS-TEST-1001\nTotal: $42.50\n\nYou will receive tracking information when a real order ships.\n\nhttps://wildsageapparel.com'
+  }, { env, fetchImpl, idempotencyKey: `wild-sage-test-${clean(testId) || 'manual'}` });
+}
+
 export function transactionalEmailStatus(env = process.env) {
   const config = emailConfig(env);
   return {
