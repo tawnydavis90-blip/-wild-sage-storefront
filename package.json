@@ -6,6 +6,7 @@
   "scripts": {
     "start": "npm run db:migrate:core && npm run db:migrate:wild-sage && node server.js",
     "dev": "node --watch server.js",
+    "test": "node --test test/*.test.js",
     "db:migrate:core": "node scripts/migrate-core.js",
     "db:migrate:wild-sage": "node scripts/migrate-wild-sage-data.js"
   },
