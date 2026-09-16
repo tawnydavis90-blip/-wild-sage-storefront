@@ -17,6 +17,8 @@ function emailConfig(env = process.env) {
   return {
     apiKey: clean(env.RESEND_API_KEY),
     from: clean(env.WILD_SAGE_FROM_EMAIL || env.WILD_SAGE_SENDER_EMAIL || env.TRANSACTIONAL_FROM_EMAIL || env.RESEND_FROM_EMAIL || env.ORDER_FROM_EMAIL),
+    shippingFrom: clean(env.SHIPPING_FROM_EMAIL || env.WILD_SAGE_SHIPPING_FROM_EMAIL),
+    support: clean(env.SUPPORT_EMAIL || env.WILD_SAGE_SUPPORT_EMAIL || 'support@wildsageapparel.com'),
     notify: clean(env.WILD_SAGE_NOTIFICATION_EMAIL || env.WILD_SAGE_NOTIFY_EMAIL || env.WILD_SAGE_OWNER_EMAIL || env.ADMIN_NOTIFICATION_EMAIL || env.OWNER_NOTIFICATION_EMAIL || env.ORDER_NOTIFICATION_EMAIL)
   };
 }
@@ -92,6 +94,34 @@ export async function sendPaidOrderEmails({ session, orderNumber, printifyOrder,
   return { sent, failed, skipped: false };
 }
 
+export async function sendShippingNotificationEmail({ session, orderNumber, shipment, eventId, env = process.env, fetchImpl = fetch }) {
+  const config = emailConfig(env);
+  const recipient = customerEmail(session);
+  if (!recipient) return { sent: false, skipped: true, reason: 'customer-email-missing' };
+
+  const carrier = clean(shipment?.carrier || 'the carrier');
+  const trackingNumber = clean(shipment?.trackingNumber);
+  const rawTrackingUrl = clean(shipment?.trackingUrl);
+  const trackingUrl = /^https?:\/\//i.test(rawTrackingUrl) ? rawTrackingUrl : '';
+  const displayOrder = clean(orderNumber || session?.id || 'your order');
+  const storeUrl = clean(env.PUBLIC_STORE_URL || 'https://wildsageapparel.com').replace(/\/$/, '');
+  const trackingHtml = trackingUrl
+    ? `<p><a href="${escapeHtml(trackingUrl)}" style="display:inline-block;background:#40513b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:4px">Track your package</a></p>`
+    : '';
+  const trackingText = trackingUrl ? `\nTrack your package: ${trackingUrl}` : '';
+
+  const result = await sendResendEmail({
+    from: config.shippingFrom || config.from,
+    reply_to: config.support || undefined,
+    to: [recipient],
+    subject: `Wild Sage order ${displayOrder} has shipped`,
+    html: `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Your Wild Sage order has shipped</title></head><body style="margin:0;background:#f6f3ec;color:#222"><div style="max-width:600px;margin:0 auto;padding:32px 20px;font-family:Arial,sans-serif;line-height:1.6"><h1 style="font-family:Georgia,serif;color:#40513b">Your order is on its way</h1><p>Hi ${escapeHtml(customerName(session))},</p><p>Your Wild Sage Apparel order has shipped.</p><p><strong>Order number:</strong> ${escapeHtml(displayOrder)}<br><strong>Carrier:</strong> ${escapeHtml(carrier)}${trackingNumber ? `<br><strong>Tracking number:</strong> ${escapeHtml(trackingNumber)}` : ''}</p>${trackingHtml}<p>Questions? Reply to this email and we’ll be happy to help.</p><p><a href="${escapeHtml(storeUrl)}">Visit Wild Sage Apparel</a></p></div></body></html>`,
+    text: `Hi ${customerName(session)},\n\nYour Wild Sage Apparel order has shipped.\n\nOrder number: ${displayOrder}\nCarrier: ${carrier}${trackingNumber ? `\nTracking number: ${trackingNumber}` : ''}${trackingText}\n\nQuestions? Reply to this email and we’ll be happy to help.\n\n${storeUrl}`
+  }, { env, fetchImpl, idempotencyKey: `wild-sage-shipment-${clean(eventId) || clean(session?.id) || trackingNumber}` });
+
+  return { sent: true, skipped: false, id: result?.id || null };
+}
+
 
 export async function sendCustomerOrderConfirmationTest({ to, env = process.env, fetchImpl = fetch, testId = 'manual' }) {
   const recipient = clean(to);
@@ -109,8 +139,9 @@ export function transactionalEmailStatus(env = process.env) {
   return {
     apiKeyConfigured: Boolean(config.apiKey),
     senderConfigured: Boolean(config.from),
+    shippingSenderConfigured: Boolean(config.shippingFrom),
     notificationConfigured: Boolean(config.notify),
-    configured: Boolean(config.apiKey && config.from && config.notify)
+    configured: Boolean(config.apiKey && config.from && config.shippingFrom && config.notify)
   };
 }
 
