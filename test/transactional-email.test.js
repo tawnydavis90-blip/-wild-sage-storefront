@@ -33,6 +33,10 @@ test('reports configuration readiness without exposing values', () => {
   });
 });
 
+test('recognizes the deployed admin notification variable name', () => {
+  assert.equal(emailConfig({ ADMIN_NOTIFICATION_EMAIL: 'owner@example.com' }).notify, 'owner@example.com');
+});
+
 test('sends both customer and owner messages as ES-module code', async () => {
   const requests = [];
   const fetchImpl = async (_url, options) => {
