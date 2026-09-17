@@ -179,7 +179,7 @@ document.getElementById("complete").onclick=async()=>{const r=await fetch("/api/
 load().catch(e=>{loading.textContent=e.message});
 </script></body></html>\`;
 
-app.get("*", (_req, res) => res.type("html").send(html));
+app.use((_req, res) => res.type("html").send(html));
 
 initialize()
   .then(() => app.listen(port, "0.0.0.0", () => console.log(\`PM Calendar listening on \${port}\`)))
