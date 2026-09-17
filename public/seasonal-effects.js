@@ -12,16 +12,16 @@
   function celebrationFor(date = new Date()) {
     const md = (date.getMonth() * 100) + date.getDate();
     const celebrations = [
-      { start: 219, end: 221, id: 'spring-equinox', message: 'SPRING EQUINOX ✦ BEGIN AGAIN', sigil: '✦' },
-      { start: 519, end: 521, id: 'summer-solstice', message: 'SUMMER SOLSTICE ✦ FOLLOW THE LIGHT', sigil: '☼' },
-      { start: 821, end: 823, id: 'autumn-equinox', message: 'AUTUMN EQUINOX ✦ BALANCE IN ALL THINGS', sigil: '☾' },
-      { start: 1120, end: 1122, id: 'winter-solstice', message: 'WINTER SOLSTICE ✦ RETURN TO THE LIGHT', sigil: '✧' }
+      { start: 219, end: 221, season: 'spring', id: 'spring-equinox', message: 'SPRING EQUINOX ✦ BEGIN AGAIN', sigil: '✦' },
+      { start: 519, end: 521, season: 'summer', id: 'summer-solstice', message: 'SUMMER SOLSTICE ✦ FOLLOW THE LIGHT', sigil: '☼' },
+      { start: 821, end: 823, season: 'fall', id: 'autumn-equinox', message: 'AUTUMN EQUINOX ✦ BALANCE IN ALL THINGS', sigil: '☾' },
+      { start: 1120, end: 1122, season: 'winter', id: 'winter-solstice', message: 'WINTER SOLSTICE ✦ RETURN TO THE LIGHT', sigil: '✧' }
     ];
     return celebrations.find(item => md >= item.start && md <= item.end) || null;
   }
 
-  const season = seasonFor();
   const celebration = celebrationFor();
+  const season = celebration?.season || seasonFor();
   document.documentElement.dataset.season = season;
 
   if (celebration) {
