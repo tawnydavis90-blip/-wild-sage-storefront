@@ -4,13 +4,54 @@
   function seasonFor(date = new Date()) {
     const md = (date.getMonth() * 100) + date.getDate();
     if (md >= 1121 || md < 220) return 'winter'; // Dec 21–Mar 19
-    if (md < 620) return 'spring';                // Mar 20–Jun 19
+    if (md < 520) return 'spring';                // Mar 20–Jun 19
     if (md < 801) return 'summer';                // Jun 20–Aug 31
     return 'fall';                                // Sep 1–Dec 20
   }
 
+  function celebrationFor(date = new Date()) {
+    const md = (date.getMonth() * 100) + date.getDate();
+    const celebrations = [
+      { start: 219, end: 221, id: 'spring-equinox', message: 'SPRING EQUINOX ✦ BEGIN AGAIN', sigil: '✦' },
+      { start: 519, end: 521, id: 'summer-solstice', message: 'SUMMER SOLSTICE ✦ FOLLOW THE LIGHT', sigil: '☼' },
+      { start: 821, end: 823, id: 'autumn-equinox', message: 'AUTUMN EQUINOX ✦ BALANCE IN ALL THINGS', sigil: '☾' },
+      { start: 1120, end: 1122, id: 'winter-solstice', message: 'WINTER SOLSTICE ✦ RETURN TO THE LIGHT', sigil: '✧' }
+    ];
+    return celebrations.find(item => md >= item.start && md <= item.end) || null;
+  }
+
   const season = seasonFor();
+  const celebration = celebrationFor();
   document.documentElement.dataset.season = season;
+
+  if (celebration) {
+    document.documentElement.dataset.seasonalCelebration = celebration.id;
+    const announcement = document.querySelector('.announcement span:first-child');
+    if (announcement) announcement.textContent = celebration.message;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      #seasonal-celestial-frame{position:fixed;inset:0;z-index:41;pointer-events:none;border:1px solid rgba(205,166,92,.32);box-shadow:inset 0 0 70px rgba(202,148,54,.07)}
+      #seasonal-celestial-frame::before,#seasonal-celestial-frame::after{position:absolute;color:rgba(220,180,95,.72);font-family:serif;text-shadow:0 0 14px rgba(238,181,69,.65)}
+      #seasonal-celestial-frame::before{content:attr(data-sigil);left:16px;top:54px;font-size:44px}
+      #seasonal-celestial-frame::after{content:"✦  ·  ✧  ·  ✦";right:18px;bottom:16px;font-size:17px;letter-spacing:.4em}
+      #seasonal-celestial-frame .corner{position:absolute;width:86px;height:86px;opacity:.58;border-color:#cda65c}
+      #seasonal-celestial-frame .tl{left:8px;top:44px;border-left:1px solid;border-top:1px solid}
+      #seasonal-celestial-frame .tr{right:8px;top:44px;border-right:1px solid;border-top:1px solid}
+      #seasonal-celestial-frame .bl{left:8px;bottom:8px;border-left:1px solid;border-bottom:1px solid}
+      #seasonal-celestial-frame .br{right:8px;bottom:8px;border-right:1px solid;border-bottom:1px solid}
+      @media(max-width:700px){#seasonal-celestial-frame .corner{width:46px;height:46px}#seasonal-celestial-frame::before{font-size:28px;top:48px}}
+    `;
+    document.head.appendChild(style);
+
+    const frame = document.createElement('div');
+    frame.id = 'seasonal-celestial-frame';
+    frame.dataset.sigil = celebration.sigil;
+    frame.setAttribute('aria-hidden', 'true');
+    frame.innerHTML = '<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>';
+    document.body.appendChild(frame);
+  }
+
   if (reducedMotion) return;
 
   const canvas = document.createElement('canvas');
@@ -118,7 +159,8 @@
       fall: mobile ? 22 : 42,
       winter: mobile ? 34 : 70
     };
-    particles = Array.from({ length: counts[season] }, () => createParticle(false));
+    const count = counts[season] + (celebration ? (mobile ? 5 : 12) : 0);
+    particles = Array.from({ length: count }, () => createParticle(false));
   }
 
   function resetParticle(p) {
