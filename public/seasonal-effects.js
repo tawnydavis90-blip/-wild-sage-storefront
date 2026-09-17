@@ -1,19 +1,17 @@
 (() => {
-  const WINTER_START = { month: 11, day: 21 }; // December 21
-  const SPRING_START = { month: 2, day: 20 };  // March 20
-  const FALL_START = { month: 8, day: 1 };     // September 1
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function seasonFor(date = new Date()) {
     const md = (date.getMonth() * 100) + date.getDate();
-    if (md >= 1121 || md < 220) return 'winter';
-    if (md >= 801) return 'fall';
-    return 'none';
+    if (md >= 1121 || md < 220) return 'winter'; // Dec 21–Mar 19
+    if (md < 620) return 'spring';                // Mar 20–Jun 19
+    if (md < 801) return 'summer';                // Jun 20–Aug 31
+    return 'fall';                                // Sep 1–Dec 20
   }
 
   const season = seasonFor();
   document.documentElement.dataset.season = season;
-  if (season === 'none' || reducedMotion) return;
+  if (reducedMotion) return;
 
   const canvas = document.createElement('canvas');
   canvas.id = 'seasonal-effects';
@@ -25,18 +23,86 @@
     height: '100%',
     pointerEvents: 'none',
     zIndex: '40',
-    opacity: season === 'fall' ? '0.82' : '0.78'
+    opacity: ({ spring: '0.72', summer: '0.74', fall: '0.82', winter: '0.78' })[season]
   });
   document.body.appendChild(canvas);
 
   const ctx = canvas.getContext('2d', { alpha: true });
-  const colors = ['#a95735', '#c68a42', '#713a35', '#87906f', '#d0a565'];
+  const fallColors = ['#a95735', '#c68a42', '#713a35', '#87906f', '#d0a565'];
+  const springColors = ['#b97b86', '#879478', '#e8dfcf', '#987383', '#c49a9b'];
   let width = 0;
   let height = 0;
   let dpr = 1;
   let particles = [];
   let animationFrame = 0;
   let lastTime = performance.now();
+
+  function base(fromTop, margin = 30) {
+    return {
+      x: Math.random() * width,
+      y: fromTop ? -margin - Math.random() * height * 0.25 : Math.random() * height,
+      phase: Math.random() * Math.PI * 2,
+      rotation: Math.random() * Math.PI * 2,
+      alpha: 0.35 + Math.random() * 0.52
+    };
+  }
+
+  function fallParticle(fromTop = false) {
+    const size = 7 + Math.random() * 13;
+    return {
+      ...base(fromTop),
+      kind: Math.random() < 0.82 ? 'leaf' : 'ember',
+      size,
+      speed: 16 + Math.random() * 27,
+      drift: 12 + Math.random() * 24,
+      spin: (Math.random() - 0.5) * 1.7,
+      color: fallColors[Math.floor(Math.random() * fallColors.length)]
+    };
+  }
+
+  function springParticle(fromTop = false) {
+    const size = 5 + Math.random() * 10;
+    return {
+      ...base(fromTop),
+      kind: Math.random() < 0.84 ? 'petal' : 'pollen',
+      size,
+      speed: 10 + Math.random() * 20,
+      drift: 10 + Math.random() * 22,
+      spin: (Math.random() - 0.5) * 1.35,
+      color: springColors[Math.floor(Math.random() * springColors.length)]
+    };
+  }
+
+  function summerParticle(fromTop = false) {
+    const moth = Math.random() < 0.07;
+    return {
+      ...base(false),
+      kind: moth ? 'moth' : 'firefly',
+      size: moth ? 7 + Math.random() * 5 : 1.2 + Math.random() * 2.6,
+      speed: 4 + Math.random() * 8,
+      drift: 7 + Math.random() * 18,
+      direction: Math.random() < 0.5 ? -1 : 1,
+      alpha: moth ? 0.22 + Math.random() * 0.18 : 0.38 + Math.random() * 0.5
+    };
+  }
+
+  function winterParticle(fromTop = false) {
+    const size = 1.4 + Math.random() * 4.2;
+    return {
+      ...base(fromTop, 15),
+      kind: 'snow',
+      size,
+      speed: 17 + size * 7 + Math.random() * 18,
+      drift: 7 + Math.random() * 18
+    };
+  }
+
+  function createParticle(fromTop = false) {
+    if (season === 'spring') return springParticle(fromTop);
+    if (season === 'summer') return summerParticle(fromTop);
+    if (season === 'fall') return fallParticle(fromTop);
+    return winterParticle(fromTop);
+  }
 
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -45,67 +111,46 @@
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    seed();
-  }
-
-  function leaf(fromTop = false) {
-    const size = 7 + Math.random() * 13;
-    return {
-      kind: Math.random() < 0.82 ? 'leaf' : 'ember',
-      x: Math.random() * width,
-      y: fromTop ? -30 - Math.random() * height * 0.25 : Math.random() * height,
-      size,
-      speed: 16 + Math.random() * 27,
-      drift: 12 + Math.random() * 24,
-      phase: Math.random() * Math.PI * 2,
-      spin: (Math.random() - 0.5) * 1.7,
-      rotation: Math.random() * Math.PI * 2,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      alpha: 0.38 + Math.random() * 0.48
-    };
-  }
-
-  function snow(fromTop = false) {
-    const size = 1.4 + Math.random() * 4.2;
-    return {
-      kind: 'snow',
-      x: Math.random() * width,
-      y: fromTop ? -15 - Math.random() * height * 0.2 : Math.random() * height,
-      size,
-      speed: 17 + size * 7 + Math.random() * 18,
-      drift: 7 + Math.random() * 18,
-      phase: Math.random() * Math.PI * 2,
-      alpha: 0.35 + Math.random() * 0.55
-    };
-  }
-
-  function seed() {
     const mobile = width < 700;
-    const count = season === 'fall' ? (mobile ? 22 : 42) : (mobile ? 34 : 70);
-    particles = Array.from({ length: count }, () => season === 'fall' ? leaf(false) : snow(false));
+    const counts = {
+      spring: mobile ? 24 : 43,
+      summer: mobile ? 25 : 48,
+      fall: mobile ? 22 : 42,
+      winter: mobile ? 34 : 70
+    };
+    particles = Array.from({ length: counts[season] }, () => createParticle(false));
   }
 
   function resetParticle(p) {
-    const fresh = season === 'fall' ? leaf(true) : snow(true);
-    Object.assign(p, fresh);
+    Object.assign(p, createParticle(season !== 'summer'));
+    if (season === 'summer') {
+      p.x = p.direction > 0 ? -25 : width + 25;
+      p.y = 25 + Math.random() * Math.max(height - 50, 1);
+    }
   }
 
-  function drawLeaf(p, t) {
+  function drawGlow(p, core, middle) {
+    const radius = Math.max(p.size * 4.5, 7);
+    const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
+    glow.addColorStop(0, core);
+    glow.addColorStop(0.25, middle);
+    glow.addColorStop(1, 'rgba(232,150,45,0)');
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  function drawFall(p, now) {
     if (p.kind === 'ember') {
-      const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 0.65);
-      glow.addColorStop(0, 'rgba(255,180,70,.85)');
-      glow.addColorStop(0.35, 'rgba(232,103,35,.45)');
-      glow.addColorStop(1, 'rgba(232,103,35,0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * 0.65, 0, Math.PI * 2);
-      ctx.fill();
+      drawGlow(p, 'rgba(255,190,85,.95)', 'rgba(232,103,35,.4)');
       return;
     }
-
     ctx.save();
     ctx.translate(p.x, p.y);
-    ctx.rotate(p.rotation + Math.sin(t * 0.001 + p.phase) * 0.35);
+    ctx.rotate(p.rotation + Math.sin(now * 0.001 + p.phase) * 0.35);
     ctx.scale(1, 0.62);
     ctx.globalAlpha = p.alpha;
     ctx.fillStyle = p.color;
@@ -123,7 +168,47 @@
     ctx.restore();
   }
 
-  function drawSnow(p) {
+  function drawSpring(p, now) {
+    if (p.kind === 'pollen') {
+      drawGlow(p, 'rgba(255,232,174,.72)', 'rgba(220,188,112,.22)');
+      return;
+    }
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rotation + Math.sin(now * 0.001 + p.phase) * 0.28);
+    ctx.scale(0.72, 1);
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.moveTo(0, -p.size);
+    ctx.bezierCurveTo(p.size, -p.size * 0.35, p.size * 0.8, p.size * 0.55, 0, p.size);
+    ctx.bezierCurveTo(-p.size * 0.7, p.size * 0.35, -p.size * 0.65, -p.size * 0.45, 0, -p.size);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSummer(p, now) {
+    if (p.kind === 'firefly') {
+      const pulse = 0.58 + Math.sin(now * 0.003 + p.phase) * 0.32;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0.12, p.alpha * pulse);
+      drawGlow(p, 'rgba(255,225,126,.98)', 'rgba(215,157,55,.4)');
+      ctx.restore();
+      return;
+    }
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(Math.sin(now * 0.0012 + p.phase) * 0.22);
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = '#c7a56b';
+    ctx.beginPath();
+    ctx.ellipse(-p.size * 0.48, 0, p.size * 0.6, p.size * 0.28, -0.35, 0, Math.PI * 2);
+    ctx.ellipse(p.size * 0.48, 0, p.size * 0.6, p.size * 0.28, 0.35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawWinter(p) {
     ctx.save();
     ctx.globalAlpha = p.alpha;
     ctx.fillStyle = '#fff';
@@ -141,11 +226,21 @@
     ctx.clearRect(0, 0, width, height);
 
     for (const p of particles) {
+      if (season === 'summer') {
+        p.x += p.speed * p.direction * dt;
+        p.y += Math.sin(now * 0.0008 + p.phase) * p.drift * dt;
+        if (p.x < -35 || p.x > width + 35 || p.y < -35 || p.y > height + 35) resetParticle(p);
+        drawSummer(p, now);
+        continue;
+      }
+
       p.y += p.speed * dt;
       p.x += Math.sin(now * 0.00065 + p.phase) * p.drift * dt;
-      if (season === 'fall') p.rotation += p.spin * dt;
+      if (season === 'fall' || season === 'spring') p.rotation += p.spin * dt;
       if (p.y > height + 35 || p.x < -50 || p.x > width + 50) resetParticle(p);
-      season === 'fall' ? drawLeaf(p, now) : drawSnow(p);
+      if (season === 'spring') drawSpring(p, now);
+      else if (season === 'fall') drawFall(p, now);
+      else drawWinter(p);
     }
     animationFrame = requestAnimationFrame(frame);
   }
