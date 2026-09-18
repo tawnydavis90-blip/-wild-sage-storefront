@@ -46,7 +46,7 @@ function text(value, max) {
   return String(value ?? "").trim().slice(0, max);
 }
 
-app.get("/health", (_req, res) => res.json({ ok: true }));
+app.get("/health", (_req, res) => res.json({ ok: true, databaseConfigured }));
 
 app.get("/api/pm", async (_req, res) => {
   try {
