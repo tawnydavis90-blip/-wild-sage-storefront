@@ -4,15 +4,20 @@ import pg from "pg";
 const { Pool } = pg;
 const app = express();
 const port = Number(process.env.PORT || 10000);
-const pool = new Pool({
+const databaseConfigured = Boolean(process.env.DATABASE_URL);
+const pool = databaseConfigured ? new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 5,
   idleTimeoutMillis: 30000,
-});
+}) : null;
 
 app.use(express.json({ limit: "100kb" }));
 
 async function initialize() {
+  if (!databaseConfigured) {
+    console.warn("DATABASE_URL is not configured yet; calendar is starting in setup mode.");
+    return;
+  }
   await pool.query(`
     CREATE SCHEMA IF NOT EXISTS pm_calendar;
     CREATE TABLE IF NOT EXISTS pm_calendar.schedules (
@@ -49,6 +54,7 @@ function text(value, max) {
 app.get("/health", (_req, res) => res.json({ ok: true, databaseConfigured }));
 
 app.get("/api/pm", async (_req, res) => {
+  if (!databaseConfigured) return res.status(503).json({ error: "Database setup is not finished yet." });
   try {
     const result = await pool.query(`
       SELECT id, equipment_name AS "equipmentName", asset_number AS "assetNumber",
@@ -67,6 +73,7 @@ app.get("/api/pm", async (_req, res) => {
 });
 
 app.post("/api/pm", async (req, res) => {
+  if (!databaseConfigured) return res.status(503).json({ error: "Database setup is not finished yet." });
   try {
     const equipmentName = text(req.body.equipmentName, 120);
     const task = text(req.body.task, 300);
@@ -92,6 +99,7 @@ app.post("/api/pm", async (req, res) => {
 });
 
 app.post("/api/pm/:id/complete", async (req, res) => {
+  if (!databaseConfigured) return res.status(503).json({ error: "Database setup is not finished yet." });
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: "Invalid PM record." });
   const client = await pool.connect();
