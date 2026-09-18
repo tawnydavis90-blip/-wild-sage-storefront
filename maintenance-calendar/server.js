@@ -13,7 +13,7 @@ const pool = new Pool({
 app.use(express.json({ limit: "100kb" }));
 
 async function initialize() {
-  await pool.query(\`
+  await pool.query(`
     CREATE SCHEMA IF NOT EXISTS pm_calendar;
     CREATE TABLE IF NOT EXISTS pm_calendar.schedules (
       id BIGSERIAL PRIMARY KEY,
@@ -39,7 +39,7 @@ async function initialize() {
       next_due DATE NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-  \`);
+  `);
 }
 
 function text(value, max) {
@@ -50,7 +50,7 @@ app.get("/health", (_req, res) => res.json({ ok: true, databaseConfigured }));
 
 app.get("/api/pm", async (_req, res) => {
   try {
-    const result = await pool.query(\`
+    const result = await pool.query(`
       SELECT id, equipment_name AS "equipmentName", asset_number AS "assetNumber",
         location, task, frequency_days AS "frequencyDays",
         TO_CHAR(last_completed, 'YYYY-MM-DD') AS "lastCompleted",
@@ -58,7 +58,7 @@ app.get("/api/pm", async (_req, res) => {
         assigned_to AS "assignedTo", notes
       FROM pm_calendar.schedules
       ORDER BY next_due, equipment_name
-    \`);
+    `);
     res.json({ items: result.rows });
   } catch (error) {
     console.error(error);
@@ -78,12 +78,12 @@ app.post("/api/pm", async (req, res) => {
     if (!Number.isInteger(frequencyDays) || frequencyDays < 1 || frequencyDays > 3650) {
       return res.status(400).json({ error: "Choose a valid repeat schedule." });
     }
-    const result = await pool.query(\`
+    const result = await pool.query(`
       INSERT INTO pm_calendar.schedules
         (equipment_name, asset_number, location, task, frequency_days, next_due)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id
-    \`, [equipmentName, text(req.body.assetNumber, 80), text(req.body.location, 120), task, frequencyDays, nextDue]);
+    `, [equipmentName, text(req.body.assetNumber, 80), text(req.body.location, 120), task, frequencyDays, nextDue]);
     res.status(201).json({ id: result.rows[0].id });
   } catch (error) {
     console.error(error);
@@ -110,15 +110,15 @@ app.post("/api/pm/:id/complete", async (req, res) => {
     next.setUTCDate(next.getUTCDate() + current.rows[0].frequency_days);
     const completedAt = completed.toISOString().slice(0, 10);
     const nextDue = next.toISOString().slice(0, 10);
-    await client.query(\`
+    await client.query(`
       INSERT INTO pm_calendar.history (schedule_id, completed_at, previous_due, next_due)
       VALUES ($1, $2, $3, $4)
-    \`, [id, completedAt, current.rows[0].next_due, nextDue]);
-    await client.query(\`
+    `, [id, completedAt, current.rows[0].next_due, nextDue]);
+    await client.query(`
       UPDATE pm_calendar.schedules
       SET last_completed=$2, next_due=$3, updated_at=NOW()
       WHERE id=$1
-    \`, [id, completedAt, nextDue]);
+    `, [id, completedAt, nextDue]);
     await client.query("COMMIT");
     res.json({ completedAt, nextDue });
   } catch (error) {
@@ -130,7 +130,7 @@ app.post("/api/pm/:id/complete", async (req, res) => {
   }
 });
 
-const html = String.raw\`<!doctype html>
+const html = String.raw`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PM Calendar</title><meta name="theme-color" content="#102e31">
 <style>
@@ -177,10 +177,10 @@ document.getElementById("prev").onclick=()=>{view=new Date(view.getFullYear(),vi
 document.getElementById("addForm").onsubmit=async e=>{e.preventDefault();const body=Object.fromEntries(new FormData(e.target));body.frequencyDays=Number(body.frequencyDays);const r=await fetch("/api/pm",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)return alert(d.error);e.target.reset();addDialog.close();await load()};
 document.getElementById("complete").onclick=async()=>{const r=await fetch("/api/pm/"+selected.id+"/complete",{method:"POST"});const d=await r.json();if(!r.ok)return alert(d.error);detailDialog.close();await load()};
 load().catch(e=>{loading.textContent=e.message});
-</script></body></html>\`;
+</script></body></html>`;
 
 app.use((_req, res) => res.type("html").send(html));
 
 initialize()
-  .then(() => app.listen(port, "0.0.0.0", () => console.log(\`PM Calendar listening on \${port}\`)))
+  .then(() => app.listen(port, "0.0.0.0", () => console.log(`PM Calendar listening on ${port}`)))
   .catch((error) => { console.error("Database initialization failed", error); process.exit(1); });
