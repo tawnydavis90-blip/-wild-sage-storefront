@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { printifyExternalId } from './printify-admin-data.js';
 
 const clean = value => String(value || '').trim();
 
@@ -31,7 +32,7 @@ export async function processPrintifyShipment({ event, getPrintifyOrder, loadStr
   if (!shipment.orderId || !shipment.shopId || !shipment.eventId) throw new Error('Printify shipment event is missing required identifiers.');
 
   const order = await getPrintifyOrder(shipment.shopId, shipment.orderId);
-  const sessionId = clean(order?.external_id);
+  const sessionId = clean(printifyExternalId(order));
   if (!sessionId.startsWith('cs_')) throw new Error('Printify shipment is not linked to a Stripe Checkout session.');
   const [session, orderNumber] = await Promise.all([
     loadStripeSession(sessionId),

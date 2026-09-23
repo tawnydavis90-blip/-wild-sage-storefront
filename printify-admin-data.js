@@ -25,6 +25,10 @@ async function api(pathname, options = {}) {
   return data;
 }
 
+export function printifyExternalId(order = {}) {
+  return String(order.external_id || order.metadata?.shop_order_id || order.metadata?.shop_order_label || '');
+}
+
 export function printifyConfigured() {
   return Boolean(process.env.PRINTIFY_API_TOKEN && process.env.PRINTIFY_API_TOKEN !== 'replace_me');
 }
@@ -87,7 +91,7 @@ export function normalizePrintifyOrder(order) {
   const totalCost = Math.max(0, productCost + shippingCost + taxCost - discount);
   return {
     id: String(order.id || ''),
-    externalId: String(order.external_id || ''),
+    externalId: printifyExternalId(order),
     status: String(order.status || ''),
     createdAt: order.created_at || null,
     sentToProductionAt: order.sent_to_production_at || null,
@@ -113,7 +117,7 @@ export function normalizePrintifyOrder(order) {
 export async function findPrintifyOrderByExternalId(externalId) {
   if (!externalId || !printifyConfigured()) return null;
   const orders = await listPrintifyOrders();
-  const raw = orders.find(o => String(o.external_id || '') === String(externalId));
+  const raw = orders.find(o => printifyExternalId(o) === String(externalId));
   return normalizePrintifyOrder(raw);
 }
 
@@ -123,7 +127,7 @@ export async function printifyCostMapForExternalIds(ids) {
   if (!wanted.size || !printifyConfigured()) return map;
   const orders = await listPrintifyOrders();
   for (const raw of orders) {
-    const externalId = String(raw.external_id || '');
+    const externalId = printifyExternalId(raw);
     if (wanted.has(externalId)) map.set(externalId, normalizePrintifyOrder(raw));
   }
   return map;
