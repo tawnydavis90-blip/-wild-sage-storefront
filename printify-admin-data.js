@@ -44,10 +44,10 @@ export async function listPrintifyOrders(maxPages = 5) {
   const shopId = await getPrintifyShopId();
   const all = [];
   for (let page = 1; page <= maxPages; page += 1) {
-    const data = await api(`/shops/${shopId}/orders.json?limit=100&page=${page}`);
+    const data = await api(`/shops/${shopId}/orders.json?limit=10&page=${page}`);
     const rows = Array.isArray(data) ? data : (data?.data || []);
     all.push(...rows);
-    if (Array.isArray(data) || rows.length < 100) break;
+    if (Array.isArray(data) || rows.length < 10) break;
     const current = Number(data?.current_page || page);
     const last = Number(data?.last_page || current);
     if (current >= last) break;
