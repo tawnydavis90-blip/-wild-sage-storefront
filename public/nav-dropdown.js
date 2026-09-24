@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded',()=>{
-  if(!document.querySelector('script[src^="/collection-visibility.js"]')){const visibility=document.createElement('script');visibility.src='/collection-visibility.js?v=1';visibility.defer=true;document.body.appendChild(visibility)}
+  if(!document.querySelector('script[src^="/collection-visibility.js"]')){const visibility=document.createElement('script');visibility.src='/collection-visibility.js?v=2';visibility.defer=true;document.body.appendChild(visibility)}
   const menu=document.querySelector('.shop-menu'),trigger=document.querySelector('.shop-trigger');
   if(!menu||!trigger)return;
   const dropdown=menu.querySelector('.shop-dropdown');

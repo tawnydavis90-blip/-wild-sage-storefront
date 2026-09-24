@@ -22,7 +22,7 @@
     }
   }
   const style = document.createElement('style');
-  style.textContent = '.category[hidden],[data-shop-filter][hidden]{display:none!important}';
+  style.textContent = '.category[hidden],[data-shop-filter][hidden],.ws-secondary-nav.category-strip .category[hidden]{display:none!important}';
   document.head.appendChild(style);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load);
   else load();

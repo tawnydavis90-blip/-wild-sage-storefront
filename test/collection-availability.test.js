@@ -23,7 +23,12 @@ test('an empty manual assignment does not fall back to automatic tags', () => {
   assert.deepEqual(availableCollectionIds(products, [{ productId: 'tee-1', collections: [] }], candidates), []);
 });
 
-test('an unassigned product automatically makes its matching collection available', () => {
+test('an unassigned product does not make a collection visible from tags alone', () => {
   const products = [{ id: 'hoodie-1', title: 'Fleece Hoodie', tags: ['Sweatshirt'] }];
-  assert.deepEqual(availableCollectionIds(products, [], candidates), ['hoodies']);
+  assert.deepEqual(availableCollectionIds(products, [], candidates), []);
+});
+
+test('ignores assignments for products that are no longer in the storefront catalog', () => {
+  const assignments = [{ productId: 'deleted-product', collections: ['hoodies'] }];
+  assert.deepEqual(availableCollectionIds([], assignments, candidates), []);
 });
