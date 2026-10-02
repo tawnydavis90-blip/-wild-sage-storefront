@@ -2,6 +2,7 @@
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   let landingMode = true;
   let merch = new Map();
+  let merchLoaded = false;
   let applying = false;
   let scheduled = false;
   const $ = (s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -10,6 +11,7 @@
     if(!landingMode || applying) return;
     const grid=$('#productGrid');
     if(!grid) return;
+    if(!merchLoaded) return;
     applying=true;
     const cards=$$('.product-card',grid);
     let marked=0;
@@ -21,9 +23,13 @@
       if(card.hidden!==shouldHide) card.hidden=shouldHide;
     });
     const status=$('#statusCard');
-    if(cards.length && !marked && status){
-      status.hidden=false;
-      status.textContent='The Current Drop is being curated. Check back soon.';
+    const drop=$('#drop');
+    if(cards.length && !marked){
+      if(drop) drop.hidden=true;
+      if(status) status.hidden=true;
+    }else if(marked){
+      if(drop) drop.hidden=false;
+      if(status) status.hidden=true;
     }
     applying=false;
   }
@@ -39,12 +45,17 @@
 
   function leaveLandingMode(){
     landingMode=false;
+    const drop=$('#drop');
+    if(drop) drop.hidden=false;
+    const status=$('#statusCard');
+    if(status && $('#productGrid .product-card')) status.hidden=true;
   }
 
   async function loadMerch(){
     try{
       const r=await fetch('/api/merchandising',{headers:{Accept:'application/json'}}),d=await r.json();
       merch=new Map((d.items||[]).map(x=>[String(x.productId),x]));
+      merchLoaded=true;
       applyCurrentDrop();
     }catch(e){console.warn('Current Drop settings unavailable:',e);}
   }
