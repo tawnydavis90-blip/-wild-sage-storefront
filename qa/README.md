@@ -1,3 +1,11 @@
+# Current booking deposit workflow
+
+New online bookings check date-based capacity, temporarily hold stock while customers pay a $35 booking deposit, and credit that payment toward the final invoice. Unpaid holds expire after 45 minutes; checkout links expire after 31 minutes. Verified payments reserve the stock until return. Paid checkouts arriving after a booking has expired are refunded instead of overbooking inventory.
+
+Private booking links let customers verify payments and cancel booking requests. Cancellation refunds the paid deposit, with idempotency protection. Staff record returns; each damaged tote adds $8 to the final invoice. The final balance is rental fees plus damage plus staff-entered tax, minus payments received. Final balance checkout is available after returns are recorded. Inventory and payment actions are tested in an isolated database with mocked Stripe, never live charges.
+
+The earlier security-deposit flow below remains available only for existing bookings.
+
 # Tote rental integration checks
 
 Run `npm install` followed by `npm run test:totes:integration`. Tests use isolated PGlite databases and a fake Stripe client. They never write to the hosted database or charge a card.
