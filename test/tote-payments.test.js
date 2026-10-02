@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {cents,checkoutItems,rentalRevenue} from '../tote-payments.js';
+test('security deposits and tax are separate checkout items and excluded from revenue',()=>{const b={reference:'TR-QA',total_cents:13500,deposit_cents:5000,tax_cents:1000,payment_status:'paid'};assert.deepEqual(checkoutItems(b).map(i=>i.price_data.unit_amount),[13500,1000,5000]);assert.equal(rentalRevenue(b),135);assert.equal(rentalRevenue({...b,refunded_cents:5000}),135);assert.equal(rentalRevenue({...b,refunded_cents:6000}),125);assert.equal(rentalRevenue({...b,payment_status:'unpaid'}),0);assert.equal(rentalRevenue({...b,payment_status:'refunded'}),0);});
+test('deposit and tax amounts reject invalid precision and negative values',()=>{assert.equal(cents('50.25'),5025);for(const v of [-1,'abc',10.005,10001])assert.throws(()=>cents(v));});
