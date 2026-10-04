@@ -20,7 +20,16 @@ document.addEventListener('DOMContentLoaded',()=>{
     const hoodies=strip.querySelector('[data-filter="hoodies"]');
     hoodies?.insertAdjacentElement('afterend',pantsButton);
   }
-  // Shop remains a native link on touch devices, just like About and Contact.
+  trigger.setAttribute('aria-expanded','false');
+  trigger.setAttribute('aria-haspopup','true');
+  trigger.addEventListener('click',e=>{
+    e.preventDefault();
+    const open=menu.classList.toggle('open');
+    trigger.setAttribute('aria-expanded',String(open));
+  });
+  trigger.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){menu.classList.remove('open');trigger.setAttribute('aria-expanded','false');trigger.focus();}
+  });
   document.addEventListener('click',e=>{
     if(!menu.contains(e.target)){menu.classList.remove('open');trigger.setAttribute('aria-expanded','false');}
   });
