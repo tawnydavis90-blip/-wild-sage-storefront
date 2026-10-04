@@ -20,11 +20,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const hoodies=strip.querySelector('[data-filter="hoodies"]');
     hoodies?.insertAdjacentElement('afterend',pantsButton);
   }
-  trigger.addEventListener('click',e=>{
-    if(window.matchMedia('(max-width:820px)').matches){
-      e.preventDefault();menu.classList.toggle('open');trigger.setAttribute('aria-expanded',menu.classList.contains('open')?'true':'false');
-    }
-  });
+  // Shop remains a native link on touch devices, just like About and Contact.
   document.addEventListener('click',e=>{
     if(!menu.contains(e.target)){menu.classList.remove('open');trigger.setAttribute('aria-expanded','false');}
   });
