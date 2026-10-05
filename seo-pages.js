@@ -1,5 +1,6 @@
 import pg from 'pg';
 import { registerParentDashboardRoutes } from './parent-dashboard-api.js';
+import { isStorefrontProductVisible } from './storefront-product-visibility.js';
 const {Pool}=pg;const API='https://api.printify.com/v1';let pool=null,shopId=null;
 function db(){if(!process.env.DATABASE_URL)return null;if(!pool)pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.NODE_ENV==='production'?{rejectUnauthorized:false}:undefined});return pool;}
 function base(req){return String(process.env.PUBLIC_STORE_URL||`${req.protocol}://${req.get('host')}`).replace(/\/$/,'');}
@@ -8,7 +9,7 @@ function slug(s=''){return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').re
 function plain(s=''){return String(s).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();}
 async function pf(path){const tok=process.env.PRINTIFY_API_TOKEN;if(!tok)throw new Error('Printify not configured');const r=await fetch(`${API}${path}`,{headers:{Authorization:`Bearer ${tok}`,'User-Agent':'WildSageApparel/0.1'}});if(!r.ok)throw new Error(`Printify ${r.status}`);return r.json();}
 async function shop(){if(shopId)return shopId;const d=await pf('/shops.json'),l=Array.isArray(d)?d:(d.data||[]),s=l.find(x=>String(x.title||x.name||'').trim().toLowerCase()==='wild sage apparel')||l[0];if(!s)throw new Error('No shop');return shopId=String(s.id);}
-async function products(){const id=await shop(),d=await pf(`/shops/${id}/products.json?limit=50`);return Array.isArray(d)?d:(d.data||[]);}
+async function products(){const id=await shop(),d=await pf(`/shops/${id}/products.json?limit=50`),list=Array.isArray(d)?d:(d.data||[]);return list.filter(isStorefrontProductVisible);}
 async function product(id){const s=await shop();return pf(`/shops/${s}/products/${encodeURIComponent(id)}.json`);}
 async function assignments(){if(!db())return new Map();try{const {rows}=await db().query('SELECT product_id,collection_ids FROM product_collection_assignments');return new Map(rows.map(r=>[String(r.product_id),Array.isArray(r.collection_ids)?r.collection_ids:[]]));}catch{return new Map();}}
 async function merchandising(){if(!db())return new Map();try{const {rows}=await db().query('SELECT product_id,mockup_urls,mockup_map FROM product_merchandising');return new Map(rows.map(r=>[String(r.product_id),{mockups:Array.isArray(r.mockup_urls)?r.mockup_urls:[],mockupMap:r.mockup_map&&typeof r.mockup_map==='object'?r.mockup_map:{}}]));}catch{return new Map();}}

@@ -6,6 +6,7 @@
       const id = normalize(element.dataset.filter || element.dataset.shopFilter);
       if (!id || alwaysVisible.has(id)) return;
       const visible = available.has(id);
+      element.classList.toggle('collection-is-visible', visible);
       element.hidden = !visible;
       element.setAttribute('aria-hidden', visible ? 'false' : 'true');
     });

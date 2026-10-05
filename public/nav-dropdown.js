@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded',()=>{
-  if(!document.querySelector('script[src^="/collection-visibility.js"]')){const visibility=document.createElement('script');visibility.src='/collection-visibility.js?v=2';visibility.defer=true;document.body.appendChild(visibility)}
+  if(!document.querySelector('script[src^="/collection-visibility.js"]')){const visibility=document.createElement('script');visibility.src='/collection-visibility.js?v=4';visibility.defer=true;document.body.appendChild(visibility)}
   const menu=document.querySelector('.shop-menu'),trigger=document.querySelector('.shop-trigger');
   if(!menu||!trigger)return;
   const dropdown=menu.querySelector('.shop-dropdown');
@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     pants.href='/collections/pants';
     pants.dataset.shopFilter='pants';
     pants.textContent='Pants';
+    pants.hidden=true;
     const hoodies=dropdown.querySelector('[data-shop-filter="hoodies"]');
     hoodies?.insertAdjacentElement('afterend',pants);
   }
@@ -17,6 +18,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     pantsButton.className='category';
     pantsButton.dataset.filter='pants';
     pantsButton.innerHTML='<span>♢</span>Pants';
+    pantsButton.hidden=true;
     const hoodies=strip.querySelector('[data-filter="hoodies"]');
     hoodies?.insertAdjacentElement('afterend',pantsButton);
   }
