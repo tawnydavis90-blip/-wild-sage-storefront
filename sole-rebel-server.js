@@ -296,7 +296,7 @@ app.post("/api/local-delivery/validate", (req, res) => {
   const valid = validLocalDeliveryCode(req.body?.code);
   res.status(valid ? 200 : 403).json({
     valid,
-    ...(valid ? {} : { error: "That local delivery code is not approved." }),
+    ...(valid ? {} : { error: "That code is not valid." }),
   });
 });
 
