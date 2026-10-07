@@ -208,6 +208,39 @@
       .delivery-choice {
         margin-top: 14px;
       }
+      .delivery-choice.hidden {
+        display: none;
+      }
+      .delivery-approval {
+        margin-top: 14px;
+        border: 1px solid #aaa49a;
+        background: #fdfaf4;
+        padding: 12px;
+      }
+      .delivery-code-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+      }
+      .delivery-code-row button {
+        border: 0;
+        background: #111;
+        color: #fff;
+        padding: 0 16px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .delivery-code-message {
+        display: block;
+        min-height: 18px;
+        margin-top: 7px;
+        color: #6f695f;
+        font-size: 0.78rem;
+      }
+      .delivery-code-message.approved {
+        color: #287238;
+        font-weight: 800;
+      }
       .address-section.hidden {
         display: none;
       }
@@ -435,10 +468,30 @@
               <div class="price-note">
                 $25 per worn day, per pair · $6 flat-rate shipping
               </div>
-              <label class="notify-choice delivery-choice">
-                <input id="localDelivery" type="checkbox" />
-                Local delivery — no shipping charge
-              </label>
+              <div class="delivery-approval">
+                <span class="label" style="margin-top: 0"
+                  >Local delivery — approval required</span
+                >
+                <div class="delivery-code-row">
+                  <input
+                    id="localDeliveryCode"
+                    type="password"
+                    autocomplete="off"
+                    placeholder="Enter approval code"
+                  />
+                  <button id="unlockLocalDelivery" type="button">Unlock</button>
+                </div>
+                <small
+                  id="localDeliveryMessage"
+                  class="delivery-code-message"
+                  role="status"
+                  aria-live="polite"
+                ></small>
+                <label id="localDeliveryChoice" class="notify-choice delivery-choice hidden">
+                  <input id="localDelivery" type="checkbox" disabled />
+                  Local delivery approved — no shipping charge
+                </label>
+              </div>
             </div>
             <div class="section">
               <h2>Your information</h2>
@@ -549,7 +602,8 @@
         pairs = 1,
         days = 1,
         currentOrder = null,
-        paymentOptions = null;
+        paymentOptions = null,
+        localDeliveryAuthorized = false;
       const money = (n) => "$" + Number(n).toFixed(2);
       function calc() {
         const sub = pairs * days * 25;
@@ -564,13 +618,47 @@
         $("#total").textContent = money(sub + (localDelivery ? 0 : 6));
       }
       function updateDeliveryMethod() {
-        const localDelivery = $("#localDelivery").checked;
+        const localDelivery =
+          localDeliveryAuthorized && $("#localDelivery").checked;
         const addressSection = $("#addressSection");
         addressSection.classList.toggle("hidden", localDelivery);
         ["street", "city", "state", "zip"].forEach((id) => {
           document.getElementById(id).required = !localDelivery;
         });
         calc();
+      }
+      async function unlockLocalDelivery() {
+        const code = $("#localDeliveryCode").value.trim();
+        const message = $("#localDeliveryMessage");
+        message.classList.remove("approved");
+        if (!code) {
+          message.textContent = "Enter the approval code first.";
+          return;
+        }
+        $("#unlockLocalDelivery").disabled = true;
+        message.textContent = "Checking code…";
+        try {
+          await req("/api/local-delivery/validate", {
+            method: "POST",
+            body: JSON.stringify({ code }),
+          });
+          localDeliveryAuthorized = true;
+          $("#localDelivery").disabled = false;
+          $("#localDelivery").checked = true;
+          $("#localDeliveryChoice").classList.remove("hidden");
+          message.textContent = "Approved. The $6 shipping charge was removed.";
+          message.classList.add("approved");
+          updateDeliveryMethod();
+        } catch (err) {
+          localDeliveryAuthorized = false;
+          $("#localDelivery").checked = false;
+          $("#localDelivery").disabled = true;
+          $("#localDeliveryChoice").classList.add("hidden");
+          message.textContent = err.message;
+          updateDeliveryMethod();
+        } finally {
+          $("#unlockLocalDelivery").disabled = false;
+        }
       }
       async function loadPhotos() {
         const heroEl = $("#heroPhoto");
@@ -638,7 +726,8 @@
         const phone = $("#phone").value.trim();
         const confirmationEmail = $("#confirmEmail").checked;
         const confirmationText = $("#confirmText").checked;
-        const localDelivery = $("#localDelivery").checked;
+        const localDelivery =
+          localDeliveryAuthorized && $("#localDelivery").checked;
         if (confirmationEmail && !email) {
           $("#error").textContent =
             "Enter an email address for email confirmations.";
@@ -660,6 +749,9 @@
               confirmationEmail,
               confirmationText,
               localDelivery,
+              localDeliveryCode: localDelivery
+                ? $("#localDeliveryCode").value.trim()
+                : "",
               color,
               pairs,
               daysWorn: days,
@@ -682,6 +774,27 @@
           $("#error").textContent = err.message;
         }
       };
+      $("#unlockLocalDelivery").addEventListener(
+        "click",
+        unlockLocalDelivery,
+      );
+      $("#localDeliveryCode").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          unlockLocalDelivery();
+        }
+      });
+      $("#localDeliveryCode").addEventListener("input", () => {
+        if (!localDeliveryAuthorized) return;
+        localDeliveryAuthorized = false;
+        $("#localDelivery").checked = false;
+        $("#localDelivery").disabled = true;
+        $("#localDeliveryChoice").classList.add("hidden");
+        $("#localDeliveryMessage").textContent =
+          "Code changed. Unlock local delivery again.";
+        $("#localDeliveryMessage").classList.remove("approved");
+        updateDeliveryMethod();
+      });
       $("#localDelivery").addEventListener("change", updateDeliveryMethod);
       function showConfirm() {
         $("#orderView").classList.add("hide");

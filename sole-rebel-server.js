@@ -26,6 +26,9 @@ const VENMO_URL = String(
   process.env.SOLE_REBEL_VENMO_URL || "https://venmo.com/u/tawny_lynn",
 );
 const CASHAPP_URL = String(process.env.SOLE_REBEL_CASHAPP_URL || "");
+const LOCAL_DELIVERY_CODE = String(
+  process.env.SOLE_REBEL_LOCAL_DELIVERY_CODE || "",
+).trim();
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const PHOTO_SLOTS = new Set(["hero", "small1", "small2", "small3"]);
@@ -85,6 +88,13 @@ function validSession(req) {
 function requireAdmin(req, res, next) {
   if (validSession(req)) return next();
   res.status(401).json({ error: "Unauthorized" });
+}
+function validLocalDeliveryCode(value) {
+  const provided = String(value || "").trim().toLowerCase();
+  const expected = LOCAL_DELIVERY_CODE.toLowerCase();
+  if (!provided || !expected || provided.length !== expected.length)
+    return false;
+  return crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
 }
 async function ids(client = pool) {
   const b = await client.query(
@@ -277,6 +287,18 @@ app.get("/api/payment-options", (_req, res) =>
     cashapp: { enabled: Boolean(CASHAPP_URL), url: CASHAPP_URL },
   }),
 );
+app.post("/api/local-delivery/validate", (req, res) => {
+  if (!LOCAL_DELIVERY_CODE)
+    return res.status(503).json({
+      valid: false,
+      error: "Local delivery approval is not configured.",
+    });
+  const valid = validLocalDeliveryCode(req.body?.code);
+  res.status(valid ? 200 : 403).json({
+    valid,
+    ...(valid ? {} : { error: "That local delivery code is not approved." }),
+  });
+});
 
 app.get("/api/storefront-media", async (_req, res) => {
   try {
@@ -321,6 +343,7 @@ app.post("/api/orders", async (req, res) => {
     const confirmationEmail = req.body?.confirmationEmail === true;
     const confirmationText = req.body?.confirmationText === true;
     const localDelivery = req.body?.localDelivery === true;
+    const localDeliveryCode = String(req.body?.localDeliveryCode || "");
     const contact = String(req.body?.contact || phone || email || "").trim();
     const address =
       req.body?.address && typeof req.body.address === "object"
@@ -337,6 +360,10 @@ app.post("/api/orders", async (req, res) => {
     if (confirmationText && phone.replace(/\D/g, "").length < 10)
       return res.status(400).json({
         error: "Enter a valid mobile number for text confirmations.",
+      });
+    if (localDelivery && !validLocalDeliveryCode(localDeliveryCode))
+      return res.status(403).json({
+        error: "Local delivery requires an approved code.",
       });
     if (
       !localDelivery &&
