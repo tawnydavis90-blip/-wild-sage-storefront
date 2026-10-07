@@ -320,6 +320,7 @@ app.post("/api/orders", async (req, res) => {
     const phone = String(req.body?.phone || "").trim();
     const confirmationEmail = req.body?.confirmationEmail === true;
     const confirmationText = req.body?.confirmationText === true;
+    const localDelivery = req.body?.localDelivery === true;
     const contact = String(req.body?.contact || phone || email || "").trim();
     const address =
       req.body?.address && typeof req.body.address === "object"
@@ -337,6 +338,16 @@ app.post("/api/orders", async (req, res) => {
       return res.status(400).json({
         error: "Enter a valid mobile number for text confirmations.",
       });
+    if (
+      !localDelivery &&
+      (![address.street, address.city, address.state, address.zip].every(
+        (value) => String(value || "").trim(),
+      ) ||
+        String(address.state || "").trim().length !== 2)
+    )
+      return res.status(400).json({
+        error: "Enter a complete shipping address, including a 2-letter state.",
+      });
     client = await pool.connect();
     await client.query("BEGIN");
     await client.query(
@@ -349,7 +360,7 @@ app.post("/api/orders", async (req, res) => {
     );
     const orderNumber = `SR-${num.rows[0].next_number}`;
     const subtotal = days * 25 * pairs,
-      shipping = 6,
+      shipping = localDelivery ? 0 : 6,
       total = subtotal + shipping;
     const metadata = {
       source: "sole-rebel-render",
@@ -364,8 +375,10 @@ app.post("/api/orders", async (req, res) => {
       daysWorn: days,
       pairs,
       pricePerDay: 25,
-      shippingFlat: 6,
-      address,
+      localDelivery,
+      deliveryMethod: localDelivery ? "local_delivery" : "shipping",
+      shippingFlat: shipping,
+      address: localDelivery ? {} : address,
       specialRequest,
       paymentLinkClicked: false,
       paymentMethodClicked: null,
