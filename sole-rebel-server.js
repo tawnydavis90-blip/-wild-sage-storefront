@@ -5,6 +5,7 @@ import pg from "pg";
 import path from "path";
 import { fileURLToPath } from "url";
 import { registerStampsShippingRoutes } from "./stamps-shipping.js";
+import { registerSoleRebelFindsRoutes } from "./sole-rebel-finds.js";
 
 const { Pool } = pg;
 const app = express();
@@ -36,7 +37,7 @@ const PHOTO_POSITIONS = new Set(["top", "center", "bottom"]);
 const VISITOR_BOT_PATTERN =
   /bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|uptime|monitor|headless/i;
 
-app.use(express.json());
+app.use(express.json({ limit: "30mb" }));
 app.use((req, _res, next) => {
   if (
     req.method === "GET" &&
@@ -714,6 +715,16 @@ registerStampsShippingRoutes(app, {
   sessionSecret: SESSION_SECRET,
 });
 
+registerSoleRebelFindsRoutes(app, {
+  pool,
+  requireAdmin,
+  getIds: ids,
+});
+
+app.get("/shop", (_req, res) =>
+  res.sendFile(path.join(__dirname, "public", "sole-rebel", "shop.html")),
+);
+
 app.get("/dashboard", async (_req, res) => {
   try {
     const { readFile } = await import("fs/promises");
@@ -725,11 +736,11 @@ app.get("/dashboard", async (_req, res) => {
         html
           .replace(
             "</head>",
-            '<link rel="stylesheet" href="/stamps-shipping-admin.css"></head>',
+            '<link rel="stylesheet" href="/stamps-shipping-admin.css"><link rel="stylesheet" href="/other-finds-admin.css"></head>',
           )
           .replace(
             "</body>",
-            '<script src="/order-delete.js"></script><script src="/visitor-analytics.js"></script><script src="/stamps-shipping-admin.js"></script></body>',
+            '<script src="/order-delete.js"></script><script src="/visitor-analytics.js"></script><script src="/stamps-shipping-admin.js"></script><script src="/other-finds-admin.js"></script></body>',
           ),
       );
   } catch (e) {

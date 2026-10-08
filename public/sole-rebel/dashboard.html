@@ -401,7 +401,7 @@
           </div>
         </div>
         <div class="actions">
-          <a class="btn" href="/">View order form</a
+          <a class="btn" href="/">View order form</a><a class="btn" href="/shop">View Other Finds</a
           ><button class="btn" id="logoutBtn">Sign out</button>
         </div>
       </div>
@@ -546,6 +546,13 @@
           e = email(m);
         return `<div class="notify-row">${allowText && p ? `<a class="btn primary" href="sms:${p}?body=${msg}">Text tracking</a>` : ""}${allowEmail && e ? `<a class="btn primary" href="mailto:${encodeURIComponent(e)}?subject=${encodeURIComponent("Your Sole Rebel order has shipped")}&body=${msg}">Email tracking</a>` : ""}${m.trackingUrl ? `<a class="btn light" target="_blank" rel="noopener" href="${esc(m.trackingUrl)}">Open tracking</a>` : ""}${noRequested ? "<small>Customer did not request email or text confirmation.</small>" : !p && !e ? "<small>No phone/email contact saved for this order.</small>" : ""}</div>`;
       }
+      function otherFindOrder(o) {
+        const m = o.metadata || {},
+          id = esc(o.id),
+          orderNo = esc(o.friendly_order_number || o.external_order_id),
+          pickup = m.deliveryMethod === "local_pickup";
+        return `<article class="order"><div class="order-head"><div><span class="new">Other Find</span><div class="name">${esc(m.customer || "Customer")}</div><div class="meta"><strong>${orderNo}</strong> · ${new Date(o.ordered_at).toLocaleString()}</div></div><div><div class="total">${money(o.total)}</div><div class="pill"><span class="dot ${o.status === "paid" ? "good" : ""}"></span>${o.status === "paid" ? "Paid" : o.status === "payment_reported" ? "Payment reported" : "Not paid"}</div></div></div><div class="order-grid"><div><div class="label">Other Finds item</div><div class="line"><strong>${esc(m.itemTitle || "Item")}</strong></div><div class="line">${esc(m.itemCondition || "")}</div><div class="line">Item price: ${money(m.itemPrice)}</div><div class="line"><small>${pickup ? "Local pickup" : `Shipping · ${money(m.shippingFlat)}`}</small></div><div class="label" style="margin-top:20px">Contact</div><div>${contactDetails(m)}</div></div><div><div class="label">${pickup ? "Delivery method" : "Ship to"}</div><div>${pickup ? "Local pickup" : `${esc(m.customer || "—")}<br>${address(m)}`}</div>${payBlock(o)}</div><div class="special"><div class="label">Customer message</div>${esc(m.specialRequest || "No message")}</div>${pickup ? "" : `<div class="tracking"><div class="label">Shipping tracking</div>${m.trackingNumber ? `<div><strong>${esc((m.trackingCarrier || "other").toUpperCase())}</strong> · ${esc(m.trackingNumber)}</div>` : ""}<div class="tracking-grid" style="margin-top:10px"><select id="carrier-${id}"><option value="usps">USPS</option><option value="ups">UPS</option><option value="fedex">FedEx</option><option value="other">Other</option></select><input id="tracking-${id}" value="${esc(m.trackingNumber || "")}" placeholder="Tracking number"><button class="btn primary" onclick="saveTracking('${id}')">Save tracking</button></div>${notifyLinks(o)}</div>`}</div><div class="admin-row">${o.status === "paid" ? `<button class="btn" onclick="setStatus('${id}','pending')">Mark unpaid</button>` : `<button class="btn primary" onclick="setStatus('${id}','paid')">Verify & mark paid</button>`}${o.status !== "payment_reported" ? `<button class="btn" onclick="setStatus('${id}','payment_reported')">Mark payment reported</button>` : ""}</div></article>`;
+      }
       async function loadOrders() {
         const d = await req("/api/admin/dashboard"),
           s = d.stats;
@@ -565,6 +572,7 @@
                 days = m.daysWorn || 1,
                 id = esc(o.id),
                 orderNo = esc(o.friendly_order_number || o.external_order_id);
+              if (m.orderType === "other_find") return otherFindOrder(o);
               const isLocal =
                 m.localDelivery === true ||
                 m.deliveryMethod === "local_delivery";
@@ -650,7 +658,11 @@
         loadOrders();
       };
       async function load() {
-        await Promise.all([loadOrders(), loadPhotos()]);
+        await Promise.all([
+          loadOrders(),
+          loadPhotos(),
+          window.loadFindsAdmin?.(),
+        ]);
       }
       async function login() {
         try {
