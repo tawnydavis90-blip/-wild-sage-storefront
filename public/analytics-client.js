@@ -1,9 +1,13 @@
 (() => {
-  const SESSION_KEY='wild_sage_session_id';
-  let sessionId=sessionStorage.getItem(SESSION_KEY);
-  if(!sessionId){sessionId=(crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`);sessionStorage.setItem(SESSION_KEY,sessionId);}
+  const newId=()=>globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  function storedId(storageName,key){
+    try{const storage=window[storageName];let id=storage.getItem(key);if(!id){id=newId();storage.setItem(key,id);}return id;}
+    catch{return newId();}
+  }
+  const sessionId=storedId('sessionStorage','wild_sage_session_id');
+  const visitorId=storedId('localStorage','wild_sage_visitor_id');
   function send(type,productId=''){
-    const body=JSON.stringify({type,productId,sessionId,path:location.pathname});
+    const body=JSON.stringify({type,productId,sessionId,visitorId,path:location.pathname});
     if(navigator.sendBeacon){navigator.sendBeacon('/api/analytics/event',new Blob([body],{type:'application/json'}));return;}
     fetch('/api/analytics/event',{method:'POST',headers:{'Content-Type':'application/json'},body,keepalive:true}).catch(()=>{});
   }
