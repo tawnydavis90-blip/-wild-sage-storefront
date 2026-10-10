@@ -22,6 +22,18 @@ try {
           updated_at=NOW()`,[item.productId,JSON.stringify([item.url]),JSON.stringify({main:{front:item.url},colors:{}})]);
     }
   }
+  const toteUpdate=await client.query("INSERT INTO storefront_content_updates(update_key) VALUES('moo_crew_bags_20261010_v1') ON CONFLICT DO NOTHING RETURNING update_key");
+  if(toteUpdate.rowCount){
+    await client.query(`INSERT INTO product_display_names(product_id,display_name,storefront_description) VALUES($1,$2,$3)
+      ON CONFLICT(product_id) DO UPDATE SET display_name=CASE WHEN product_display_names.display_name='' THEN EXCLUDED.display_name ELSE product_display_names.display_name END`,
+      ['6ac4552d287cd44de30125be','Moo Crew Tote','A little purple-cow personality for your everyday adventures. Our seated Moo Crew mascot adds a playful touch to a durable polyester tote, available in three sizes with cotton handles and a laminated lining.']);
+    await client.query(`INSERT INTO collection_settings(collection_id,label,enabled,sort_order) VALUES('bags','Bags',TRUE,6) ON CONFLICT DO NOTHING`);
+    for(const id of ['6ac4552d287cd44de30125be',...items.map(item=>item.productId)]){
+      await client.query(`INSERT INTO product_collection_assignments(product_id,collection_ids) VALUES($1,'["bags"]'::jsonb)
+        ON CONFLICT(product_id) DO UPDATE SET collection_ids=CASE WHEN product_collection_assignments.collection_ids ? 'bags' THEN product_collection_assignments.collection_ids ELSE product_collection_assignments.collection_ids || '["bags"]'::jsonb END,updated_at=NOW()`,[id]);
+    }
+    console.log('Published Moo Crew Tote name and Bags assignments.');
+  }
   await client.query('COMMIT');
   console.log(claimed.rowCount?'Published six weekender names and mockups.':'Weekender update already applied; preserving dashboard edits.');
 } catch (error) {
