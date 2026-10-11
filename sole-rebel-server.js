@@ -725,6 +725,11 @@ app.get("/shop", (_req, res) =>
   res.sendFile(path.join(__dirname, "public", "sole-rebel", "shop.html")),
 );
 
+app.get("/dashboard/items", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.sendFile(path.join(__dirname, "public", "sole-rebel", "items-admin.html"));
+});
+
 app.get("/dashboard", async (_req, res) => {
   try {
     const { readFile } = await import("fs/promises");

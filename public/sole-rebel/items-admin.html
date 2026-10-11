@@ -1,0 +1,377 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Manage other items · Sole Rebel</title><style>
+      :root {
+        --bg: #171715;
+        --paper: #f3f0e8;
+        --line: #474640;
+        --text: #f7f4ec;
+        --ink: #111;
+        --muted: #aaa69c;
+        --lime: #c9ff33;
+        --red: #d45247;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      .wrap {
+        max-width: 1180px;
+        margin: auto;
+        padding: 18px;
+      }
+      .eyebrow {
+        font-size: 0.72rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        font-weight: 800;
+      }
+      .brand {
+        font:
+          700 clamp(3rem, 8vw, 5.6rem) Georgia,
+          serif;
+        margin: 0.25rem 0;
+      }
+      .sub {
+        color: #cbc7bc;
+        margin: 0.25rem 0 1.4rem;
+      }
+      .top {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 18px;
+        flex-wrap: wrap;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 24px;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .btn {
+        padding: 11px 15px;
+        border: 1px solid #5b5a54;
+        background: transparent;
+        color: #fff;
+        cursor: pointer;
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .btn.primary {
+        background: #111;
+        color: #fff;
+        border-color: #111;
+      }
+      .btn.light {
+        background: #fff;
+        color: #111;
+        border-color: #111;
+      }
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin: 28px 0 20px;
+      }
+      .metric {
+        border: 1px solid var(--line);
+        padding: 18px 22px;
+        min-height: 105px;
+      }
+      .metric small {
+        display: block;
+        color: #bdb9ae;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+      .metric strong {
+        font:
+          700 1.8rem Georgia,
+          serif;
+      }
+      .photo-panel {
+        border: 1px solid var(--line);
+        padding: 22px;
+        margin: 24px 0;
+      }
+      .photo-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: end;
+        flex-wrap: wrap;
+      }
+      .photo-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-top: 18px;
+      }
+      .photo-card {
+        border: 1px solid #5b5a54;
+        padding: 12px;
+        background: #1e1e1b;
+      }
+      .photo-card h3 {
+        margin: 0 0 10px;
+        font:
+          700 1.05rem Georgia,
+          serif;
+      }
+      .photo-preview {
+        aspect-ratio: 4/5;
+        background: #0f0f0e;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        border: 1px solid #3d3d38;
+        margin-bottom: 10px;
+      }
+      .photo-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .photo-empty {
+        font-size: 0.78rem;
+        color: #aaa69c;
+        text-align: center;
+        padding: 10px;
+      }
+      .file {
+        width: 100%;
+        font-size: 0.8rem;
+        margin: 6px 0 8px;
+        color: #ddd;
+      }
+      .position-row {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        gap: 8px;
+        margin: 7px 0 10px;
+        font-size: 0.76rem;
+        color: #d0ccc2;
+      }
+      .position-row select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #5b5a54;
+        background: #111;
+        color: #fff;
+      }
+      .position-row select:disabled {
+        opacity: 0.45;
+      }
+      .photo-actions {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+      .photo-card .btn {
+        padding: 8px 10px;
+        font-size: 0.78rem;
+      }
+      .photo-msg {
+        font-size: 0.75rem;
+        color: #c8ff33;
+        min-height: 16px;
+        margin-top: 7px;
+      }
+      .orders {
+        display: grid;
+        gap: 18px;
+      }
+      .order {
+        background: var(--paper);
+        color: var(--ink);
+        padding: 28px 34px;
+      }
+      .order .btn {
+        color: #111;
+        border-color: #111;
+        background: transparent;
+      }
+      .order .btn.primary {
+        background: #111;
+        color: #fff;
+        border-color: #111;
+      }
+      .order .btn.light {
+        background: #fff;
+        color: #111;
+        border-color: #111;
+      }
+      .order-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        border-bottom: 1px solid #cbc7bc;
+        padding-bottom: 18px;
+      }
+      .new {
+        display: inline-block;
+        background: var(--lime);
+        padding: 5px 9px;
+        font-size: 0.66rem;
+        font-weight: 900;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .name {
+        font:
+          700 2rem Georgia,
+          serif;
+        margin: 0.6rem 0 0.25rem;
+      }
+      .meta {
+        font-size: 0.8rem;
+        color: #6b675e;
+      }
+      .total {
+        font:
+          700 2rem Georgia,
+          serif;
+        text-align: right;
+      }
+      .pill {
+        display: inline-flex;
+        gap: 7px;
+        align-items: center;
+        border: 1px solid #222;
+        padding: 8px 11px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        margin-top: 8px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--red);
+      }
+      .dot.good {
+        background: #4d9a53;
+      }
+      .order-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+        padding-top: 20px;
+      }
+      .label {
+        font-size: 0.68rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #6b675e;
+        font-weight: 900;
+        margin-bottom: 10px;
+      }
+      .line {
+        margin: 7px 0;
+      }
+      .payment-status {
+        margin-top: 14px;
+        padding: 12px 14px;
+        background: #e8e4da;
+        border-left: 4px solid #111;
+      }
+      .payment-status.clicked {
+        border-left-color: #b28e00;
+      }
+      .payment-status.reported {
+        border-left-color: #d07c00;
+      }
+      .payment-status.paid {
+        border-left-color: #4d9a53;
+      }
+      .special,
+      .tracking {
+        grid-column: 1/-1;
+        background: #e6e2d8;
+        padding: 16px;
+        margin-top: 8px;
+      }
+      .tracking {
+        background: #dedad0;
+      }
+      .tracking-grid {
+        display: grid;
+        grid-template-columns: 160px 1fr auto;
+        gap: 8px;
+        align-items: end;
+      }
+      .tracking select,
+      .tracking input {
+        margin: 0;
+        width: 100%;
+        padding: 11px;
+        border: 1px solid #aaa;
+        background: #fff;
+        color: #111;
+      }
+      .notify-row,
+      .admin-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .login {
+        max-width: 430px;
+        margin: 12vh auto;
+        padding: 26px;
+        border: 1px solid var(--line);
+      }
+      #password {
+        width: 100%;
+        padding: 13px;
+        margin: 12px 0;
+        background: #111;
+        border: 1px solid var(--line);
+        color: #fff;
+      }
+      @media (max-width: 900px) {
+        .photo-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      @media (max-width: 760px) {
+        .metrics {
+          grid-template-columns: 1fr 1fr;
+        }
+        .order-grid {
+          grid-template-columns: 1fr;
+        }
+        .order {
+          padding: 22px;
+        }
+        .order-head {
+          flex-direction: column;
+        }
+        .total {
+          text-align: left;
+        }
+        .tracking-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 500px) {
+        .metrics,
+        .photo-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style><link rel="stylesheet" href="/other-finds-admin.css"></head><body>
+<div id="login" class="login"><div class="eyebrow">Private item management</div><h1 class="brand">Sole Rebel</h1><input id="password" type="password" autocomplete="current-password" placeholder="Admin password"><button id="loginBtn" class="btn primary">Open item manager</button><div id="err" class="sub" role="alert"></div></div>
+<main id="app" class="wrap hidden"><div class="top"><div><div class="eyebrow">Sole Rebel</div><h1 class="brand">Manage other items</h1></div><div class="actions"><a class="btn" href="/dashboard">Back to dashboard</a><button class="btn" id="logoutBtn">Sign out</button></div></div><section id="findsAdmin" class="finds-admin"><div class="finds-admin-head"><div><div class="eyebrow">Other Finds</div><h2 style="font:700 2rem Georgia,serif;margin:.35rem 0">Sell other items</h2><div class="sub">Create listings for one-off pieces. Claims appear with your regular orders below.</div></div><div class="actions"><a class="btn" href="/shop" target="_blank">View shop</a><button class="btn" id="reloadFinds">Refresh</button></div></div><form id="findCreate" class="finds-form"><label>Item name<input id="findTitle" required></label><label>Description<textarea id="findDescription"></textarea></label><label>Price<input id="findPrice" type="number" min="0" step=".01" required></label><label>Condition<input id="findCondition" placeholder="New, good, vintage…"></label><label>Qty<input id="findQuantity" type="number" min="0" value="1" required></label><label>Delivery<select id="findFulfillment"><option value="shipping">Shipping</option><option value="local_pickup">Local pickup</option><option value="both">Both</option></select></label><label>Shipping<input id="findShipping" type="number" min="0" step=".01" value="6"></label><label class="finds-photo-field">Photos — up to 4<input id="findPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple required></label><button class="btn primary finds-submit" type="submit">Post item</button></form><div id="findsMsg" class="finds-msg"></div><div id="findList" class="find-list"></div></section><section id="orders" hidden></section></main>
+<script src="/other-finds-admin.js?v=items-page-2"></script><script src="/items-login.js?v=items-page-2"></script></body></html>
