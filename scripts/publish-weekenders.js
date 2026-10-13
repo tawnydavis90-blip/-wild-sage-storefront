@@ -41,3 +41,7 @@ try {
   console.error('Weekender publication failed:',error.message);
   process.exitCode=1;
 } finally { await client.end(); }
+
+// A failed external product launch must not prevent the existing shop from starting.
+const { publishSporeAndWander } = await import('./spore-and-wander.js');
+await publishSporeAndWander().catch(error=>console.error('Spore & Wander launch:',error.message));
