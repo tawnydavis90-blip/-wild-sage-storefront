@@ -43,20 +43,30 @@ export async function getPrintifyShopId() {
   return cachedShopId;
 }
 
-export async function listPrintifyOrders(maxPages = 5) {
+export async function listPrintifyOrders(maxPages = 100) {
   if (!printifyConfigured()) return [];
   const shopId = await getPrintifyShopId();
   const all = [];
   for (let page = 1; page <= maxPages; page += 1) {
-    const data = await api(`/shops/${shopId}/orders.json?limit=10&page=${page}`);
+    const data = await api(`/shops/${shopId}/orders.json?limit=100&page=${page}`);
     const rows = Array.isArray(data) ? data : (data?.data || []);
     all.push(...rows);
-    if (Array.isArray(data) || rows.length < 10) break;
+    if (Array.isArray(data)) return all;
     const current = Number(data?.current_page || page);
-    const last = Number(data?.last_page || current);
-    if (current >= last) break;
+    const last = data?.last_page == null ? null : Number(data.last_page);
+    if (last != null ? current >= last : !data?.next_page_url && rows.length < 100) return all;
   }
-  return all;
+  throw new Error('Printify order history exceeded the page limit; the feed is incomplete.');
+}
+
+export async function printifyOrdersByExternalId() {
+  const orders = await listPrintifyOrders();
+  const map = new Map();
+  for (const order of orders) {
+    const id = printifyExternalId(order);
+    if (id && !map.has(id)) map.set(id, order);
+  }
+  return map;
 }
 
 function cents(value) {
@@ -125,9 +135,8 @@ export async function printifyCostMapForExternalIds(ids) {
   const wanted = new Set((ids || []).map(String).filter(Boolean));
   const map = new Map();
   if (!wanted.size || !printifyConfigured()) return map;
-  const orders = await listPrintifyOrders();
-  for (const raw of orders) {
-    const externalId = printifyExternalId(raw);
+  const orders = await printifyOrdersByExternalId();
+  for (const [externalId, raw] of orders) {
     if (wanted.has(externalId)) map.set(externalId, normalizePrintifyOrder(raw));
   }
   return map;
