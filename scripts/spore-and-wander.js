@@ -4,6 +4,8 @@ const items = [
   {key:'blue-daydream', color:'blue', name:'Spore & Wander Weekender — Blue Daydream', story:'A little mushroom magic for wherever the weekend takes you. Cobalt-blue swirls, checkerboard caps, and whimsical mushrooms dance across a white backdrop, with Wild Sage Apparel woven into the front and a matching mushroom garden on the back.'},
   {key:'sage-daydream', color:'sage', name:'Spore & Wander Weekender — Sage Daydream', story:'For earthy souls with a wandering streak. Warm sage-green mushrooms, playful checkerboards, and flowing botanical lines bring a little woodland whimsy to your getaway, with Wild Sage Apparel woven into the front and a matching mushroom garden on the back.'}
 ];
+// These exact products passed front/back Printify mockup inspection.
+const reviewedIds = new Set(['6acd948a63b8c8c4210d1523','6acd948e2db98a5e790526e8']);
 
 export function printAreasFor(template, catalog, uploads) {
   const enabled = template.variants.filter(v=>v.is_enabled && v.is_available!==false);
@@ -35,8 +37,8 @@ export async function publishSporeAndWander() {
   if(!process.env.PRINTIFY_API_TOKEN || !process.env.DATABASE_URL) return;
   const {default:pg}=await import('pg');
   const client=new pg.Client({connectionString:process.env.DATABASE_URL,ssl:process.env.NODE_ENV==='production'?{rejectUnauthorized:false}:undefined});
-  const api=async(path,body)=>{
-    const response=await fetch(`https://api.printify.com/v1${path}`,{method:body?'POST':'GET',headers:{Authorization:`Bearer ${process.env.PRINTIFY_API_TOKEN}`,'Content-Type':'application/json','User-Agent':'WildSageApparel/0.1'},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(60000)});
+  const api=async(path,body,method='POST')=>{
+    const response=await fetch(`https://api.printify.com/v1${path}`,{method:body?method:'GET',headers:{Authorization:`Bearer ${process.env.PRINTIFY_API_TOKEN}`,'Content-Type':'application/json','User-Agent':'WildSageApparel/0.1'},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(60000)});
     const text=await response.text();
     if(!response.ok) throw new Error(`Printify ${response.status} on ${path}: ${text.slice(0,500)}`);
     return text?JSON.parse(text):null;
@@ -46,13 +48,23 @@ export async function publishSporeAndWander() {
     const lock=await client.query("SELECT pg_try_advisory_lock(hashtext('spore_and_wander_20261013')) AS acquired");
     if(!lock.rows[0].acquired) return;
     await client.query('CREATE TABLE IF NOT EXISTS storefront_product_launches (launch_key TEXT PRIMARY KEY, product_id TEXT, completed_at TIMESTAMPTZ)');
+    await client.query('ALTER TABLE storefront_product_launches ADD COLUMN IF NOT EXISTS released_at TIMESTAMPTZ');
     const pending=[];
-    for(const item of items){const {rows}=await client.query('SELECT * FROM storefront_product_launches WHERE launch_key=$1',[item.key]);if(!rows[0]?.completed_at)pending.push({...item,productId:rows[0]?.product_id});}
-    if(!pending.length) return;
+    const releases=[];
+    for(const item of items){const {rows}=await client.query('SELECT * FROM storefront_product_launches WHERE launch_key=$1',[item.key]);if(!rows[0]?.completed_at)pending.push({...item,productId:rows[0]?.product_id});else if(!rows[0]?.released_at&&reviewedIds.has(rows[0]?.product_id))releases.push({...item,productId:rows[0].product_id});}
+    if(!pending.length&&!releases.length) return;
     const shops=await api('/shops.json');
     const shop=shops.find(s=>String(s.title||'').trim().toLowerCase()==='wild sage apparel');
     if(!shop) throw new Error('Wild Sage Apparel shop not found.');
     const prefix=`/shops/${shop.id}`;
+    for(const item of releases){
+      const product=await api(`${prefix}/products/${item.productId}.json`);
+      if(product.blueprint_id!==326 || !(product.tags||[]).includes(`wild-sage-spore-wander-${item.key}`)) throw new Error('Reviewed product identity changed.');
+      await api(`${prefix}/products/${item.productId}.json`,{tags:product.tags.filter(tag=>tag!=='spore-layout-review')},'PUT');
+      await client.query('UPDATE storefront_product_launches SET released_at=NOW() WHERE launch_key=$1',[item.key]);
+      console.log(`Spore & Wander published: ${item.name} (${item.productId})`);
+    }
+    if(!pending.length) return;
     const template=await api(`${prefix}/products/6ac4835271fb1b154105587d.json`);
     if(template.blueprint_id!==326 || template.print_provider_id!==99) throw new Error('Reference weekender provider changed; review required.');
     const catalog=await api(`/catalog/blueprints/${template.blueprint_id}/print_providers/${template.print_provider_id}/variants.json`);
