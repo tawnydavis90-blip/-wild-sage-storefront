@@ -48,13 +48,13 @@ export async function listPrintifyOrders(maxPages = 100) {
   const shopId = await getPrintifyShopId();
   const all = [];
   for (let page = 1; page <= maxPages; page += 1) {
-    const data = await api(`/shops/${shopId}/orders.json?limit=100&page=${page}`);
+    const data = await api(`/shops/${shopId}/orders.json?limit=50&page=${page}`);
     const rows = Array.isArray(data) ? data : (data?.data || []);
     all.push(...rows);
     if (Array.isArray(data)) return all;
     const current = Number(data?.current_page || page);
     const last = data?.last_page == null ? null : Number(data.last_page);
-    if (last != null ? current >= last : !data?.next_page_url && rows.length < 100) return all;
+    if (last != null ? current >= last : !data?.next_page_url && rows.length < 50) return all;
   }
   throw new Error('Printify order history exceeded the page limit; the feed is incomplete.');
 }
