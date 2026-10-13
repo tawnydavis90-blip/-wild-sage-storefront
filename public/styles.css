@@ -181,18 +181,20 @@ footer{padding:44px clamp(20px,4vw,50px);border-top:1px solid var(--line);displa
 footer>p{grid-column:1/-1;text-align:center;font:.7rem "Cormorant Garamond",serif;letter-spacing:.3em;color:#9d9387}
 
 .drawer-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.66);z-index:50}
-.drawer{position:fixed;z-index:60;top:0;right:0;width:min(440px,94vw);height:100dvh;background:#11140f;border-left:1px solid var(--line);padding:22px;transform:translateX(105%);transition:transform .25s ease;display:flex;flex-direction:column}
+.drawer{position:fixed;z-index:60;top:0;right:0;width:min(440px,94vw);height:100dvh;background:#11140f;border-left:1px solid var(--line);padding:22px;transform:translateX(105%);transition:transform .25s ease;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .drawer.open{transform:translateX(0)}
-.drawer-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:15px}
+.drawer-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:15px;flex:0 0 auto;position:sticky;top:0;z-index:3;background:#11140f}
 .drawer-head h2{font:2.2rem "Cormorant Garamond",serif;margin:0}
 .drawer-head button,.dialog-close{border:0;background:transparent;font-size:2rem;cursor:pointer}
-.bag-items{overflow:auto;flex:1;padding:10px 0}
+/* Shared by the homepage and collection pages: scroll the entire drawer,
+   rather than shrinking products above the delivery form. */
+.bag-items{overflow:visible;flex:0 0 auto;min-height:0;padding:10px 0}
 .bag-item{display:grid;grid-template-columns:72px 1fr auto;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
 .bag-item img{width:72px;height:86px;object-fit:cover}
 .bag-item h4{margin:0 0 4px;font-family:"Cormorant Garamond",serif;font-size:1.1rem}
 .bag-item p{margin:0;font-size:.78rem;color:#aaa397}
 .bag-remove{border:0;background:transparent;cursor:pointer}
-.bag-summary{border-top:1px solid var(--line);padding-top:18px}
+.bag-summary{border-top:1px solid var(--line);padding-top:18px;flex:0 0 auto}
 .bag-summary>div{display:flex;justify-content:space-between;font-size:1.15rem}
 .bag-summary p{font-size:.78rem;color:#9e978c}
 .checkout-button{width:100%;padding:14px;border:0;background:var(--sage);color:#0a0c09;text-transform:uppercase;letter-spacing:.1em;font-weight:700}
