@@ -16,6 +16,13 @@ export function printAreasFor(template, catalog, uploads) {
       if(!['front','back'].includes(position)) throw new Error(`Review required for weekender print area: ${position}`);
       const dimensions=catalog.variants.flatMap(v=>v.placeholders||[]).find(p=>p.position===position);
       if(!dimensions?.width || !dimensions?.height) throw new Error(`Missing dimensions for ${position}`);
+      if(area.placeholders.length===1 && position==='front') {
+        if(dimensions.width!==3825||dimensions.height!==4950) throw new Error('Combined sheet dimensions changed; review required.');
+        return {position,images:['front','back'].map((side,index)=>{
+          const image=uploads[side];
+          return {id:image.id,x:0.5,y:index===0?0.25:0.75,scale:Math.max(1,dimensions.height/2/dimensions.width*image.width/image.height)*1.01,angle:index===0?0:180};
+        })};
+      }
       const image=uploads[position];
       // Fill the entire printable face, with a small bleed; keep the wordmark centered.
       const scale=Math.max(1,dimensions.height/dimensions.width*image.width/image.height)*1.01;
@@ -51,7 +58,7 @@ export async function publishSporeAndWander() {
     const catalog=await api(`/catalog/blueprints/${template.blueprint_id}/print_providers/${template.print_provider_id}/variants.json`);
     console.log('Spore & Wander template areas:',JSON.stringify(catalog.variants.map(v=>({id:v.id,placeholders:v.placeholders}))));
     const positions=new Set(template.print_areas.flatMap(a=>a.placeholders.map(p=>p.position)));
-    if(!positions.has('front')||!positions.has('back')||positions.size!==2) throw new Error('Reference weekender must have separate front and back print areas.');
+    if(!positions.has('front')||positions.size>2) throw new Error('Unexpected weekender print areas.');
     const existing=[];
     for(let page=1;page<=20;page++){
       const data=await api(`${prefix}/products.json?limit=50&page=${page}`);
@@ -70,7 +77,7 @@ export async function publishSporeAndWander() {
         const product=await api(`${prefix}/products.json`,{
           title:item.name,description:`<p>${item.story}</p>${template.description||''}`,
           blueprint_id:template.blueprint_id,print_provider_id:template.print_provider_id,
-          tags:['Bags','Weekender','Mushrooms','Spore & Wander',tag],
+          tags:['Bags','Weekender','Mushrooms','Spore & Wander','spore-layout-review',tag],
           variants:template.variants.filter(v=>v.is_enabled&&v.is_available!==false).map(v=>({id:v.id,price:v.price,is_enabled:true})),
           print_areas:printAreasFor(template,catalog,uploads)
         });
@@ -79,6 +86,7 @@ export async function publishSporeAndWander() {
       // Checkpoint the external ID before any local merchandising mutations.
       await client.query('INSERT INTO storefront_product_launches(launch_key,product_id) VALUES($1,$2) ON CONFLICT(launch_key) DO UPDATE SET product_id=EXCLUDED.product_id',[item.key,productId]);
       const product=await api(`${prefix}/products/${productId}.json`);
+      console.log('Spore & Wander layout preview:',JSON.stringify({id:productId,images:product.images}));
       if(product.visible!==true) throw new Error(`Product ${productId} is a draft; publishing needs review.`);
       const url=`https://wildsageapparel.com/mockups/spore-and-wander/${item.key}.webp`;
       await client.query('BEGIN');

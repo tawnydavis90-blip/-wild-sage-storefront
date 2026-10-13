@@ -8,6 +8,7 @@ const HIDDEN_STOREFRONT_PRODUCT_IDS = new Set([
 
 export function isStorefrontProductVisible(product) {
   if (!product || product.visible !== true) return false;
+  if ((product.tags || []).includes('spore-layout-review')) return false;
   if (HIDDEN_STOREFRONT_PRODUCT_IDS.has(String(product.id || '').trim())) return false;
   return !HIDDEN_STOREFRONT_PRODUCT_TITLES.has(String(product.title || '').trim().toLowerCase());
 }

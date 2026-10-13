@@ -19,3 +19,9 @@ test('blocks unexpected print areas and missing geometry',()=>{
   assert.throws(()=>printAreasFor({...template,print_areas:[{variant_ids:[1],placeholders:[{position:'all'}]}]},catalog,uploads),/Review required/);
   assert.throws(()=>printAreasFor(template,{variants:[]},uploads),/Missing dimensions/);
 });
+test('combined weekender sheet uses two centered faces with opposite orientation',()=>{
+  const combined={...template,print_areas:[{variant_ids:[1],placeholders:[{position:'front'}]}]};
+  const sheet={variants:[{placeholders:[{position:'front',width:3825,height:4950}]}]};
+  const images=printAreasFor(combined,sheet,uploads)[0].placeholders[0].images;
+  assert.deepEqual(images.map(i=>[i.id,i.y,i.angle]),[['branded',0.25,0],['pattern',0.75,180]]);
+});
