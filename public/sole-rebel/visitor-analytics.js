@@ -1,8 +1,14 @@
 (() => {
   const labels = [
-    ['Visitors - 24 hours', 'visitors_24h'],
-    ['Visitors - 7 days', 'visitors_7d'],
-    ['Visitors - lifetime', 'visitors_lifetime']
+    ['All visitors - 24 hours', 'visitors_24h'],
+    ['All visitors - 7 days', 'visitors_7d'],
+    ['All visitors - lifetime', 'visitors_lifetime'],
+    ['Custom Socks - 24 hours', 'visitors_custom_socks_24h'],
+    ['Custom Socks - 7 days', 'visitors_custom_socks_7d'],
+    ['Custom Socks - lifetime', 'visitors_custom_socks_lifetime'],
+    ['Other Finds - 24 hours', 'visitors_other_finds_24h'],
+    ['Other Finds - 7 days', 'visitors_other_finds_7d'],
+    ['Other Finds - lifetime', 'visitors_other_finds_lifetime']
   ];
   let loading = false;
 
