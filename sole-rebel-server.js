@@ -39,13 +39,19 @@ const VISITOR_BOT_PATTERN =
 
 app.use(express.json({ limit: "30mb" }));
 app.use((req, _res, next) => {
+  const pageKey =
+    req.path === "/"
+      ? "custom_socks"
+      : req.path === "/shop"
+        ? "other_finds"
+        : "";
   if (
     req.method === "GET" &&
-    req.path === "/" &&
+    pageKey &&
     !validSession(req) &&
     !VISITOR_BOT_PATTERN.test(String(req.headers["user-agent"] || ""))
   ) {
-    void recordStorefrontVisit(req).catch((err) =>
+    void recordStorefrontVisit(req, pageKey).catch((err) =>
       console.error("Sole Rebel visitor tracking error:", err.message),
     );
   }
@@ -146,27 +152,35 @@ async function ensureAnalyticsSchema() {
   await pool.query(`CREATE TABLE IF NOT EXISTS sole_rebel_visits (
     id BIGSERIAL PRIMARY KEY,
     visitor_key TEXT NOT NULL,
+    page_key TEXT NOT NULL DEFAULT 'custom_socks',
     visited_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  await pool.query(
+    "ALTER TABLE sole_rebel_visits ADD COLUMN IF NOT EXISTS page_key TEXT NOT NULL DEFAULT 'custom_socks'",
+  );
   await pool.query(
     "CREATE INDEX IF NOT EXISTS idx_sole_rebel_visits_visited_at ON sole_rebel_visits(visited_at)",
   );
   await pool.query(
     "CREATE INDEX IF NOT EXISTS idx_sole_rebel_visits_visitor_key ON sole_rebel_visits(visitor_key)",
   );
+  await pool.query(
+    "CREATE INDEX IF NOT EXISTS idx_sole_rebel_visits_page_key ON sole_rebel_visits(page_key,visited_at)",
+  );
 }
 
-async function recordStorefrontVisit(req) {
+async function recordStorefrontVisit(req, pageKey = "custom_socks") {
   await ensureAnalyticsSchema();
   const key = visitorKey(req);
   await pool.query(
-    `INSERT INTO sole_rebel_visits(visitor_key,visited_at)
-    SELECT $1,NOW()
+    `INSERT INTO sole_rebel_visits(visitor_key,page_key,visited_at)
+    SELECT $1,$2,NOW()
     WHERE NOT EXISTS (
       SELECT 1 FROM sole_rebel_visits
-      WHERE visitor_key=$1 AND visited_at>=NOW()-INTERVAL '30 minutes'
+      WHERE visitor_key=$1 AND page_key=$2
+        AND visited_at>=NOW()-INTERVAL '30 minutes'
     )`,
-    [key],
+    [key, pageKey],
   );
 }
 
@@ -627,7 +641,7 @@ app.get("/api/admin/dashboard", requireAdmin, async (_req, res) => {
         [businessId],
       ),
       pool.query(
-        `SELECT COUNT(DISTINCT visitor_key) FILTER (WHERE visited_at>=NOW()-INTERVAL '24 hours')::int AS visitors_24h,COUNT(DISTINCT visitor_key) FILTER (WHERE visited_at>=NOW()-INTERVAL '7 days')::int AS visitors_7d,COUNT(DISTINCT visitor_key)::int AS visitors_lifetime FROM sole_rebel_visits`,
+        `SELECT COUNT(DISTINCT visitor_key) FILTER (WHERE visited_at>=NOW()-INTERVAL '24 hours')::int AS visitors_24h,COUNT(DISTINCT visitor_key) FILTER (WHERE visited_at>=NOW()-INTERVAL '7 days')::int AS visitors_7d,COUNT(DISTINCT visitor_key)::int AS visitors_lifetime,COUNT(DISTINCT visitor_key) FILTER (WHERE page_key='custom_socks' AND visited_at>=NOW()-INTERVAL '24 hours')::int AS visitors_custom_socks_24h,COUNT(DISTINCT visitor_key) FILTER (WHERE page_key='custom_socks' AND visited_at>=NOW()-INTERVAL '7 days')::int AS visitors_custom_socks_7d,COUNT(DISTINCT visitor_key) FILTER (WHERE page_key='custom_socks')::int AS visitors_custom_socks_lifetime,COUNT(DISTINCT visitor_key) FILTER (WHERE page_key='other_finds' AND visited_at>=NOW()-INTERVAL '24 hours')::int AS visitors_other_finds_24h,COUNT(DISTINCT visitor_key) FILTER (WHERE page_key='other_finds' AND visited_at>=NOW()-INTERVAL '7 days')::int AS visitors_other_finds_7d,COUNT(DISTINCT visitor_key) FILTER (WHERE page_key='other_finds')::int AS visitors_other_finds_lifetime FROM sole_rebel_visits`,
       ),
     ]);
     res.json({
