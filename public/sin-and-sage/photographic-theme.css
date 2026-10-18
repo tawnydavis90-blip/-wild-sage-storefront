@@ -1,0 +1,23 @@
+/* Sin & Sage photo-led mobile storefront */
+body{background:#050505}
+.nav{background:#050505;border-bottom:0;min-height:104px}
+.preview{background:#211817;color:#e0c9b0}
+.hero{background:linear-gradient(90deg,rgba(5,5,5,.92),rgba(5,5,5,.58) 55%,rgba(5,5,5,.2)),linear-gradient(0deg,#050505,transparent 30%),url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1200&q=85&fit=crop') center 35%/cover no-repeat;min-height:580px}
+.hero:after{display:none}
+.hero h1{font-size:clamp(3.4rem,12vw,5.4rem);line-height:1.04;text-shadow:0 3px 12px #0009}
+.hero .eyebrow{text-align:left;letter-spacing:.19em}
+.hero p{color:#fff2e6;text-shadow:0 2px 6px #000}
+.hero .chips{display:none}
+.quick-cats{margin-top:-12px;position:relative;z-index:3;background:#050505;padding-top:26px;padding-bottom:30px}
+.quick-cats span{background:radial-gradient(circle,#3b3327,#0a0a09 72%);border-color:#ba9463;color:#d6b182}
+.collections .collection{background-size:cover!important;background-position:center!important;min-height:195px;border-color:#b08a5a}
+.collection:before{content:'';position:absolute;inset:0;background:linear-gradient(0deg,#000d,transparent 70%);pointer-events:none}
+.collection:nth-child(1){background-image:url('https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=700&q=82&fit=crop')!important}
+.collection:nth-child(2){background-image:url('https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=700&q=82&fit=crop')!important}
+.collection:nth-child(3){background-image:url('https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=700&q=82&fit=crop')!important}
+.collection:nth-child(4){background-image:url('https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=700&q=82&fit=crop')!important}
+.collection .symbol{display:none}
+.collection strong,.collection small{position:relative;z-index:1}
+.collection strong{font-weight:500;letter-spacing:.16em;background:#000c;border-color:#b99565}
+#collections h2{font:400 clamp(2.1rem,8vw,3.4rem) Georgia,serif;text-transform:uppercase}
+@media(max-width:560px){.hero{min-height:565px;padding-top:66px;background-position:57% center}.hero h1{max-width:330px}.quick-cats{gap:5px}.quick-cats a{font-size:9px}.quick-cats span{width:min(100%,70px)}.collection{min-height:174px!important}}
