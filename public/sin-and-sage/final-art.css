@@ -1,0 +1,24 @@
+/* Sin & Sage approved reference artwork */
+body{background:#050505}
+.hero{background:linear-gradient(90deg,#050403e0 0%,#050403ae 35%,#05040308 76%),linear-gradient(0deg,#050505,transparent 26%),url('/sin-and-sage/assets/hero.jpg') 57% 40%/cover no-repeat;min-height:580px}
+.hero:after{display:none}
+.hero .eyebrow{text-align:left;color:#d7ad7d}
+.hero h1{color:#f2e8d9;text-shadow:0 2px 9px #000a}
+.hero p{color:#f7f0e6;text-shadow:0 2px 6px #000}
+.hero .cta{background:#d7ad7d;color:#15100b}
+.hero .chips{display:none}
+.quick-cats{background:#050505;position:relative;z-index:3}
+.quick-cats span{font-size:0!important;background-image:url('/sin-and-sage/assets/icons-sprite.jpg')!important;background-repeat:no-repeat!important;background-size:400% 100%!important;border:0!important;box-shadow:none!important;aspect-ratio:1}
+.quick-cats a:nth-child(1) span{background-position:0 0!important}
+.quick-cats a:nth-child(2) span{background-position:33.333% 0!important}
+.quick-cats a:nth-child(3) span{background-position:66.666% 0!important}
+.quick-cats a:nth-child(4) span{background-position:100% 0!important}
+#collections{background:#050505}
+.collections .collection{background-image:linear-gradient(0deg,#000a,transparent 62%),url('/sin-and-sage/assets/collections-sprite.jpg')!important;background-size:100% 100%,200% 200%!important;background-repeat:no-repeat!important;min-height:180px;border:1px solid #aa855d;border-radius:10px}
+.collection:nth-child(1){background-position:center,0 0!important}
+.collection:nth-child(2){background-position:center,100% 0!important}
+.collection:nth-child(3){background-position:center,0 100%!important}
+.collection:nth-child(4){background-position:center,100% 100%!important}
+.collection .symbol{display:none!important}
+.collection strong{position:relative;z-index:1;background:#050505d9;border:1px solid #c5a078;border-radius:50px;font-size:12px;letter-spacing:.16em}
+@media(max-width:560px){.hero{min-height:560px}.quick-cats span{width:min(100%,78px)}.collections .collection{min-height:175px}}
