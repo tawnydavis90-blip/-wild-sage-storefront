@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 360" role="img" aria-labelledby="t d">
+<title id="t">Sin &amp; Sage</title><desc id="d">Celestial botanical Sin and Sage logo in antique gold and sage.</desc>
+<defs>
+  <linearGradient id="gold" x1="0" x2="1"><stop stop-color="#d6b878"/><stop offset=".5" stop-color="#f0dcc1"/><stop offset="1" stop-color="#aa7c3f"/></linearGradient>
+  <linearGradient id="sage" x1="0" x2="1"><stop stop-color="#879177"/><stop offset="1" stop-color="#4f5d4c"/></linearGradient>
+  <filter id="soft"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity=".35"/></filter>
+</defs>
+<g fill="none" stroke="url(#gold)" stroke-width="3" opacity=".9">
+  <path d="M160 250C90 180 100 80 190 35C145 100 160 185 235 235"/>
+  <path d="M735 245C820 185 815 85 725 40C775 105 755 190 680 238"/>
+</g>
+<g fill="url(#sage)" stroke="#b58a52" stroke-width="2" filter="url(#soft)">
+  <path d="M195 220C145 198 132 156 161 128C166 166 184 186 222 197C209 204 201 211 195 220Z"/>
+  <path d="M215 186C169 163 164 123 193 95C197 129 214 150 247 160C235 168 224 176 215 186Z"/>
+  <path d="M686 214C737 194 752 153 725 124C718 162 699 182 661 192C674 199 682 206 686 214Z"/>
+  <path d="M666 181C713 159 719 119 691 91C685 126 668 147 635 156C647 165 658 173 666 181Z"/>
+</g>
+<g fill="url(#gold)">
+  <path d="M450 34l8 21 21 8-21 8-8 21-8-21-21-8 21-8z"/>
+  <circle cx="450" cy="102" r="5"/>
+  <path d="M450 122c-38 0-68 31-68 69 0 28 17 52 41 63-11-13-18-30-18-49 0-37 30-67 67-67 16 0 31 6 43 15-13-19-35-31-65-31z"/>
+</g>
+<text x="450" y="235" text-anchor="middle" fill="url(#gold)" font-family="Georgia, 'Times New Roman', serif" font-size="104" font-style="italic" font-weight="600" letter-spacing="2">Sin &amp; Sage</text>
+<g fill="#c6a36b">
+  <circle cx="343" cy="270" r="3"/><circle cx="557" cy="270" r="3"/>
+  <path d="M450 255l6 14 14 6-14 6-6 14-6-14-14-6 14-6z"/>
+</g>
+<text x="450" y="325" text-anchor="middle" fill="#9fa78d" font-family="Arial, sans-serif" font-size="17" letter-spacing="7">INTIMACY • RITUAL • WELLNESS</text>
+</svg>
