@@ -7,16 +7,16 @@
   const sessionId=storedId('sessionStorage','wild_sage_session_id');
   const visitorId=storedId('localStorage','wild_sage_visitor_id');
   function send(type,productId=''){
-    const body=JSON.stringify({type,productId,sessionId,visitorId,path:location.pathname});
+    const body=JSON.stringify({type,productId,sessionId,visitorId,path:location.pathname,trackingVersion:2});
     if(navigator.sendBeacon){navigator.sendBeacon('/api/analytics/event',new Blob([body],{type:'application/json'}));return;}
     fetch('/api/analytics/event',{method:'POST',headers:{'Content-Type':'application/json'},body,keepalive:true}).catch(()=>{});
   }
+  window.addEventListener('wildsage:cart-added',e=>send('add_to_bag',String(e.detail?.productId||'')));
+  window.addEventListener('wildsage:checkout-ready',()=>send('checkout_start'));
   send('page_view');
   document.addEventListener('click',e=>{
     const card=e.target.closest('.product-card');
     if(card&&(e.target.closest('.details')||e.target.closest('.product-image-wrap'))){send('product_view',card.dataset.productId||'');}
-    if(e.target.closest('.quick-add'))send('add_to_bag',card?.dataset.productId||'');
-    if(e.target.closest('#dialogAdd')){const dialog=document.querySelector('#productDialogContent h2')?.textContent?.trim()||'';const p=(window.__wildSageProducts||[]).find(x=>String(x.title||'').trim()===dialog);send('add_to_bag',p?.id||'');}
-    if(e.target.closest('#checkoutBtn'))send('checkout_start');
+
   },true);
 })();

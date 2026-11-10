@@ -5,8 +5,9 @@ export async function summarizeTraffic(db) {
       SELECT
         COUNT(*) FILTER (WHERE event_type='page_view')::int AS "pageViews",
         COUNT(*) FILTER (WHERE event_type='product_view')::int AS "productViews",
-        COUNT(*) FILTER (WHERE event_type='add_to_bag')::int AS "addToBags",
-        COUNT(*) FILTER (WHERE event_type='checkout_start')::int AS "checkoutStarts",
+        COUNT(*) FILTER (WHERE event_type='add_to_bag' AND metadata->>'trackingVersion'='2')::int AS "addToBags",
+        COUNT(*) FILTER (WHERE event_type='checkout_start' AND metadata->>'trackingVersion'='2')::int AS "checkoutStarts",
+        COUNT(*) FILTER (WHERE event_type='add_to_bag' AND COALESCE(metadata->>'trackingVersion','1')<>'2')::int AS "legacyAddToBagClicks",
         COUNT(DISTINCT NULLIF(session_id,''))::int AS "uniqueSessions",
         COUNT(DISTINCT COALESCE('visitor:' || NULLIF(visitor_id,''), 'session:' || NULLIF(session_id,'')))::int AS "uniqueVisitors"
       FROM analytics_events

@@ -12,3 +12,10 @@ test('passes every delivery field to Stripe, including unit and phone',()=>{
 test('does not put a placeholder recipient into checkout',()=>{
   assert.throws(()=>checkoutCustomerDetails({name:'  '}),/full name/);
 });
+
+test('defers phone collection to Stripe without inventing a customer phone',()=>{
+ const result=checkoutCustomerDetails({name:'Sample Shopper',address1:'123 Example St',city:'Ogden',region:'UT',zip:'84401'});
+ assert.equal('phone' in result,false);
+ assert.equal('phone' in result.shipping,false);
+ assert.equal(result.shipping.address.postal_code,'84401');
+});
