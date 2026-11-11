@@ -6,7 +6,7 @@
   let catalog=[];
   const findProduct=id=>catalog.find(p=>String(p.id)===String(id));
   const findVariant=(p,id)=>(p?.variants||[]).find(v=>String(v.id)===String(id));
-  const imageFor=(p,variantId)=>p?.customMockups?.main?.front||p?.images?.find(i=>(i.variantIds||[]).map(String).includes(String(variantId)))?.src||p?.images?.find(i=>String(i.position||'').toLowerCase().includes('front'))?.src||p?.images?.[0]?.src||'';
+  const imageFor=(p,id)=>window.wildSageCartThumbnail.forProduct(p,id);
 
   function hydrate(){
     const cart=readCart();
@@ -22,7 +22,7 @@
       if(v?.title&&next.variantTitle!==v.title){next.variantTitle=v.title;changed=true}
       const price=Number(v?.price??p?.minPrice??next.price??0);
       if(Number(next.price||0)!==price){next.price=price;changed=true}
-      const image=imageFor(p,next.variantId)||next.image||'';
+      const image=(p.customMockups&&imageFor(p,next.variantId))||next.image||imageFor(p,next.variantId);
       if(image&&next.image!==image){next.image=image;changed=true}
       cart[i]=next;
     });
@@ -48,7 +48,10 @@
   }
 
   async function init(){
-    try{const r=await fetch('/api/products',{headers:{Accept:'application/json'},cache:'no-store'});const d=await r.json();catalog=Array.isArray(d.products)?d.products:[];}catch{}
+    try{const r=await fetch('/api/products',{headers:{Accept:'application/json'},cache:'no-store'});const d=await r.json();catalog=Array.isArray(d.products)?d.products:[];
+      const merch=await fetch('/api/merchandising').then(r=>r.json()).catch(()=>({items:[]}));
+      const maps=new Map((merch.items||[]).map(item=>[String(item.productId),item.mockupMap||{main:{front:item.mockups?.[0]}}]));
+      catalog=catalog.map(p=>({...p,customMockups:maps.get(String(p.id))||p.customMockups}));}catch{}
     render();
     const bag=document.querySelector('#bagBtn');if(bag)bag.addEventListener('click',()=>setTimeout(render,0));
     window.addEventListener('storage',e=>{if(e.key===CART_KEY)render()});
