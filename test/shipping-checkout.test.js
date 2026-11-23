@@ -15,7 +15,10 @@ test('one checkout request calculates shipping once and carries delivery details
   throw Error('Unexpected Printify request');
  };
  const stripeClient={customers:{create:async data=>{customer=data;return{id:'cus_fixture'};}},checkout:{sessions:{create:async data=>{session=data;return{url:'https://checkout.stripe.com/c/pay/fixture'};}}}};
- const app=express();app.use(express.json());registerShippingCheckoutRoutes(app,{stripeClient});
+ const app=express();app.use(express.json());registerShippingCheckoutRoutes(app,{
+  stripeClient,
+  loadNames:async()=>({items:[{productId:'shirt',displayName:'Same plants different trip'}]})
+ });
  const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
  try {
   const result=await nativeFetch(`http://127.0.0.1:${server.address().port}/api/checkout-shipping`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:[{productId:'shirt',variantId:1,quantity:2}],address:{name:'Sample Shopper',address1:'123 Example St',address2:'Unit 4',city:'Ogden',region:'UT',zip:'84401'}})});
@@ -24,6 +27,7 @@ test('one checkout request calculates shipping once and carries delivery details
   assert.equal(session.customer,'cus_fixture');assert.equal(session.phone_number_collection.enabled,true);
   assert.equal(session.shipping_options[0].shipping_rate_data.fixed_amount.amount,599);
   assert.equal(session.line_items[0].price_data.unit_amount,2500);assert.equal(session.line_items[0].quantity,2);
+  assert.equal(session.line_items[0].price_data.product_data.name,'Same plants different trip');
   assert.equal(session.automatic_tax.enabled,true);
  } finally {global.fetch=nativeFetch;if(previousToken===undefined)delete process.env.PRINTIFY_API_TOKEN;else process.env.PRINTIFY_API_TOKEN=previousToken;await new Promise(r=>server.close(r));}
 });
