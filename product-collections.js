@@ -66,7 +66,7 @@ export async function readAssignments(){
   const {rows}=await db().query('SELECT product_id,collection_ids,updated_at FROM product_collection_assignments ORDER BY updated_at DESC');
   return {configured:true,items:rows.map(r=>({productId:r.product_id,collections:Array.isArray(r.collection_ids)?r.collection_ids:[],updatedAt:r.updated_at}))};
 }
-async function readNames(){
+export async function readNames(){
   if(!(await ensureSchema())) return {configured:false,items:[]};
   const {rows}=await db().query("SELECT product_id,display_name,storefront_description,updated_at FROM product_display_names WHERE display_name<>'' OR storefront_description<>'' ORDER BY updated_at DESC");
   return {configured:true,items:rows.map(r=>({productId:r.product_id,displayName:r.display_name,storefrontDescription:r.storefront_description,updatedAt:r.updated_at}))};
